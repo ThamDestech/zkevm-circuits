@@ -19,7 +19,7 @@ impl Opcode for Returndatacopy {
         let call = state.call_ctx()?;
         let return_data = &call.return_data;
 
-        let mut memory = geth_step.memory.0.clone();
+        let mut memory = geth_step.memory.borrow().0.clone();
         let length = size.as_usize();
         if length != 0 {
             let mem_starts = dest_offset.as_usize();
@@ -37,10 +37,11 @@ impl Opcode for Returndatacopy {
                     memory.resize(resize, 0);
                 }
                 memory[mem_starts..mem_ends].copy_from_slice(&return_data[data_starts..data_ends]);
-                assert_eq!(memory, geth_steps[1].memory.0);
+                assert_eq!(memory, geth_steps[1].memory.borrow().0);
             } else {
                 assert_eq!(geth_steps.len(), 1);
-                // if overflows this opcode would fails current context, so there is no more steps.
+                // if overflows this opcode would fails current context, so
+                // there is no more steps.
             }
         }
 
@@ -112,8 +113,8 @@ mod return_tests {
             tx_from_1_to_0,
             |block, _tx| block.number(0xcafeu64),
         )
-            .unwrap()
-            .into();
+        .unwrap()
+        .into();
 
         let mut builder = BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
         builder
@@ -176,8 +177,8 @@ mod return_tests {
             tx_from_1_to_0,
             |block, _tx| block.number(0xcafeu64),
         )
-            .unwrap()
-            .into();
+        .unwrap()
+        .into();
 
         let mut builder = BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
         builder

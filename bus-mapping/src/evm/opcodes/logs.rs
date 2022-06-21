@@ -130,7 +130,11 @@ fn gen_log_copy_step(
 ) -> Result<(), Error> {
     // Get memory data
     let memory_address: MemoryAddress = Word::from(src_addr).try_into()?;
-    let mem_read_value = geth_steps[0].memory.read_word(memory_address).to_be_bytes();
+    let mem_read_value = geth_steps[0]
+        .memory
+        .borrow()
+        .read_word(memory_address)
+        .to_be_bytes();
 
     let data_end_index = std::cmp::min(bytes_left, MAX_COPY_BYTES);
     for (idx, _) in mem_read_value.iter().enumerate().take(data_end_index) {

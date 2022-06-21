@@ -114,7 +114,7 @@ impl Opcode for Call {
         // Calculate next_memory_word_size and callee_gas_left manually in case
         // there isn't next geth_step (e.g. callee doesn't have code).
         let next_memory_word_size = [
-            geth_step.memory.word_size() as u64,
+            geth_step.memory.borrow().word_size() as u64,
             (call.call_data_offset + call.call_data_length + 31) / 32,
             (call.return_data_offset + call.return_data_length + 31) / 32,
         ]
@@ -136,7 +136,7 @@ impl Opcode for Call {
         } else {
             0
         } + memory_expansion_gas_cost(
-            geth_step.memory.word_size() as u64,
+            geth_step.memory.borrow().word_size() as u64,
             next_memory_word_size,
         );
         let callee_gas_left = eip150_gas(geth_step.gas.0 - gas_cost, geth_step.stack.last()?);

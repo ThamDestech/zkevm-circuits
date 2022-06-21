@@ -81,7 +81,7 @@ fn gen_memory_copy_steps(
     let src_addr_end = code.len() as u64;
 
     // TODO: COMPLETE MEMORY RECONSTRUCTION
-    let mut memory = geth_steps[0].memory.0.clone();
+    let mut memory = geth_steps[0].memory.borrow().0.clone();
     if length != 0 {
         let minimal_length = (dest_offset + length) as usize;
         if minimal_length > memory.len() {
@@ -108,7 +108,7 @@ fn gen_memory_copy_steps(
         }
     }
 
-    assert_eq!(memory, geth_steps[1].memory.0);
+    assert_eq!(memory, geth_steps[1].memory.borrow().0);
     state.call_ctx_mut()?.memory = memory;
 
     let code_source = code_hash.to_word();
@@ -135,7 +135,6 @@ fn gen_memory_copy_steps(
 
     Ok(steps)
 }
-
 
 #[cfg(test)]
 mod extcodecopy_tests {
@@ -192,8 +191,8 @@ mod extcodecopy_tests {
             tx_from_1_to_0,
             |block, _tx| block.number(0xcafeu64),
         )
-            .unwrap()
-            .into();
+        .unwrap()
+        .into();
 
         let mut builder = BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
         builder

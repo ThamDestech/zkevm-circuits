@@ -33,7 +33,7 @@ impl Opcode for Mload {
         let mut mem_read_addr: MemoryAddress = stack_value_read.try_into()?;
         // Accesses to memory that hasn't been initialized are valid, and return
         // 0.
-        let mem_read_value = geth_steps[1].memory.read_word(mem_read_addr);
+        let mem_read_value = geth_steps[1].memory.borrow().read_word(mem_read_addr);
 
         //
         // First stack write

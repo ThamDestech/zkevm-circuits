@@ -511,8 +511,8 @@ fn check_err_invalid_code(step: &GethExecStep, next_step: Option<&GethExecStep>)
         && step.error.is_none()
         && result(next_step).is_zero()
         && length > Word::zero()
-        && !step.memory.0.is_empty()
-        && step.memory.0.get(offset.low_u64() as usize) == Some(&0xef)
+        && !step.memory.borrow().is_empty()
+        && step.memory.borrow().0.get(offset.low_u64() as usize) == Some(&0xef)
 }
 
 #[test]

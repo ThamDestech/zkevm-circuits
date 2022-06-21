@@ -31,7 +31,7 @@ impl<const IS_MSTORE8: bool> Opcode for Mstore<IS_MSTORE8> {
         // First mem write -> 32 MemoryOp generated.
         let offset_addr: MemoryAddress = offset.try_into()?;
 
-        let mut memory = geth_step.memory.0.clone();
+        let mut memory = geth_step.memory.borrow().0.clone();
         let minimal_length = offset_addr.0 + if IS_MSTORE8 { 8 } else { 32 };
         if minimal_length > memory.len() {
             let resize = if minimal_length % 32 == 0 {
@@ -54,7 +54,7 @@ impl<const IS_MSTORE8: bool> Opcode for Mstore<IS_MSTORE8> {
                 memory[mem_starts..mem_starts + 32].copy_from_slice(&bytes);
             }
         }
-        assert_eq!(memory, geth_steps[1].memory.0);
+        assert_eq!(memory, geth_steps[1].memory.borrow().0);
         state.call_ctx_mut()?.memory = memory;
 
         match IS_MSTORE8 {

@@ -256,6 +256,16 @@ impl Memory {
         Memory(Vec::new())
     }
 
+    /// Returns true if memory contains no elements.
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    /// Returns the number of elements in the memory.
+    pub fn len(&self) -> usize {
+        self.0.len()
+    }
+
     /// Pushes a set of bytes or an [`Word`] in the last `Memory` position.
     pub fn push<T: AsRef<[u8]>>(&mut self, input: T) {
         self.0.extend(input.as_ref())

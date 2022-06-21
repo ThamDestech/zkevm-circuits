@@ -408,6 +408,7 @@ impl<'a> CircuitInputStateRef<'a> {
         let call_data = match call.kind {
             CallKind::Call | CallKind::CallCode | CallKind::DelegateCall | CallKind::StaticCall => {
                 step.memory
+                    .borrow()
                     .read_chunk(call.call_data_offset.into(), call.call_data_length.into())
             }
             CallKind::Create | CallKind::Create2 => Vec::new(),
@@ -686,6 +687,7 @@ impl<'a> CircuitInputStateRef<'a> {
             let length = step.stack.nth_last(1)?;
             let code = step
                 .memory
+                .borrow()
                 .read_chunk(offset.low_u64().into(), length.low_u64().into());
             let code_hash = self.code_db.insert(None, code);
             let (found, callee_account) = self.sdb.get_account_mut(&call.address);
@@ -772,8 +774,8 @@ impl<'a> CircuitInputStateRef<'a> {
                     if length > Word::from(0x6000u64) {
                         return Ok(Some(ExecError::MaxCodeSizeExceeded));
                     } else if length > Word::zero()
-                        && !step.memory.0.is_empty()
-                        && step.memory.0.get(offset.low_u64() as usize) == Some(&0xef)
+                        && !step.memory.borrow().is_empty()
+                        && step.memory.borrow().0.get(offset.low_u64() as usize) == Some(&0xef)
                     {
                         return Ok(Some(ExecError::InvalidCreationCode));
                     } else if Word::from(200u64) * length > Word::from(step.gas.0) {

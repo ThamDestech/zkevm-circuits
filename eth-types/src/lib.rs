@@ -21,6 +21,7 @@ pub mod bytecode;
 pub mod evm_types;
 pub mod geth_types;
 
+use std::cell::RefCell;
 pub use bytecode::Bytecode;
 pub use error::Error;
 use halo2_proofs::{
@@ -260,7 +261,7 @@ pub struct GethExecStep {
     // stack is in hex 0x prefixed
     pub stack: Stack,
     // memory is in chunks of 32 bytes, in hex
-    pub memory: Memory,
+    pub memory: RefCell<Memory>,
     // storage is hex -> hex
     pub storage: Storage,
 }
@@ -315,11 +316,13 @@ impl<'de> Deserialize<'de> for GethExecStep {
             depth: s.depth,
             error: s.error,
             stack: Stack(s.stack.iter().map(|dw| dw.to_word()).collect::<Vec<Word>>()),
-            memory: Memory::from(
-                s.memory
-                    .iter()
-                    .map(|dw| dw.to_word())
-                    .collect::<Vec<Word>>(),
+            memory: RefCell::new(
+                Memory::from(
+                    s.memory
+                        .iter()
+                        .map(|dw| dw.to_word())
+                        .collect::<Vec<Word>>(),
+                )
             ),
             storage: Storage(
                 s.storage

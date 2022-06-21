@@ -203,10 +203,12 @@ impl<'a> CircuitInputBuilder {
 }
 
 /// Retrieve the init_code from memory for {CREATE, CREATE2}
-pub fn get_create_init_code(step: &GethExecStep) -> Result<&[u8], Error> {
+pub fn get_create_init_code(step: &GethExecStep) -> Result<Vec<u8>, Error> {
     let offset = step.stack.nth_last(1)?;
     let length = step.stack.nth_last(2)?;
-    Ok(&step.memory.0[offset.low_u64() as usize..(offset.low_u64() + length.low_u64()) as usize])
+    Ok(step.memory.borrow().0
+        [offset.low_u64() as usize..(offset.low_u64() + length.low_u64()) as usize]
+        .to_vec())
 }
 
 /// Retrieve the memory offset and length of call.

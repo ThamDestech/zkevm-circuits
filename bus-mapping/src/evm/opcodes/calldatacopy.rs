@@ -139,7 +139,7 @@ fn gen_memory_copy_steps(
     );
 
     // TODO: COMPLETE MEMORY RECONSTRUCTION
-    let mut memory = geth_steps[0].memory.0.clone();
+    let mut memory = geth_steps[0].memory.borrow().0.clone();
     if length != 0 {
         let minimal_length = memory_offset as usize + length;
         if minimal_length > memory.len() {
@@ -166,7 +166,7 @@ fn gen_memory_copy_steps(
             // bound bytes
         }
     }
-    assert_eq!(memory, geth_steps[1].memory.0);
+    assert_eq!(memory, geth_steps[1].memory.borrow().0);
     state.call_ctx_mut()?.memory = memory;
 
     let mut copied = 0;
@@ -434,8 +434,8 @@ mod calldatacopy_tests {
             },
             |block, _tx| block,
         )
-            .unwrap()
-            .into();
+        .unwrap()
+        .into();
 
         let mut builder = BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
         builder
