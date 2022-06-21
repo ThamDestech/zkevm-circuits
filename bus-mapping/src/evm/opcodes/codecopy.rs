@@ -6,6 +6,7 @@ use crate::{
     Error,
 };
 use eth_types::{GethExecStep, ToWord};
+use eth_types::evm_types::Memory;
 
 use super::Opcode;
 
@@ -112,7 +113,11 @@ fn gen_memory_copy_steps(
         }
     }
 
-    assert_eq!(memory, geth_steps[1].memory.borrow().0);
+    if geth_steps[1].memory.borrow().is_empty() {
+        geth_steps[1].memory.replace(Memory::from(memory.clone()));
+    } else {
+        assert_eq!(memory, geth_steps[1].memory.borrow().0);
+    }
     state.call_ctx_mut()?.memory = memory;
 
     let code_hash = code_hash.to_word();

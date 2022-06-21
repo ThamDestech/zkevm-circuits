@@ -2,6 +2,7 @@ use crate::circuit_input_builder::{CircuitInputStateRef, ExecStep};
 use crate::evm::Opcode;
 use crate::Error;
 use eth_types::{Address, GethExecStep, ToAddress, ToBigEndian};
+use eth_types::evm_types::Memory;
 
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct Return;
@@ -35,7 +36,11 @@ impl Opcode for Return {
                 .return_data
                 .copy_from_slice(&geth_steps[0].memory.borrow().0[offset..offset + length]);
             caller_ctx.last_call = Some(current_call);
-            assert_eq!(&caller_ctx.memory, &geth_steps[1].memory.borrow().0);
+            if geth_steps[1].memory.borrow().is_empty() {
+                geth_steps[1].memory.replace(Memory::from(caller_ctx.memory.clone()));
+            } else {
+                assert_eq!(&caller_ctx.memory, &geth_steps[1].memory.borrow().0);
+            }
         } else {
             // dealing with contract creation
             assert!(offset + length <= geth_step.memory.borrow().0.len());

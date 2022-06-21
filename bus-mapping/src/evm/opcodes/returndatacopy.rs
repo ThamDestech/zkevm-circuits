@@ -1,3 +1,4 @@
+use eth_types::evm_types::Memory;
 use crate::circuit_input_builder::{CircuitInputStateRef, ExecStep};
 use crate::evm::Opcode;
 use crate::Error;
@@ -37,7 +38,11 @@ impl Opcode for Returndatacopy {
                     memory.resize(resize, 0);
                 }
                 memory[mem_starts..mem_ends].copy_from_slice(&return_data[data_starts..data_ends]);
-                assert_eq!(memory, geth_steps[1].memory.borrow().0);
+                if geth_steps[1].memory.borrow().is_empty() {
+                    geth_steps[1].memory.replace(Memory::from(memory.clone()));
+                } else {
+                    assert_eq!(memory, geth_steps[1].memory.borrow().0);
+                }
             } else {
                 assert_eq!(geth_steps.len(), 1);
                 // if overflows this opcode would fails current context, so

@@ -5,6 +5,7 @@ use crate::circuit_input_builder::{
 use crate::constants::MAX_COPY_BYTES;
 use crate::Error;
 use eth_types::{GethExecStep, ToAddress, ToWord};
+use eth_types::evm_types::Memory;
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Extcodecopy;
@@ -108,7 +109,11 @@ fn gen_memory_copy_steps(
         }
     }
 
-    assert_eq!(memory, geth_steps[1].memory.borrow().0);
+    if geth_steps[1].memory.borrow().is_empty() {
+        geth_steps[1].memory.replace(Memory::from(memory.clone()));
+    } else {
+        assert_eq!(memory, geth_steps[1].memory.borrow().0);
+    }
     state.call_ctx_mut()?.memory = memory;
 
     let code_source = code_hash.to_word();

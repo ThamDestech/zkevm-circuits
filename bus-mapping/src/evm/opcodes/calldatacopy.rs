@@ -1,3 +1,4 @@
+use eth_types::evm_types::Memory;
 use super::Opcode;
 use crate::operation::{CallContextField, MemoryOp, RW};
 use crate::Error;
@@ -166,7 +167,11 @@ fn gen_memory_copy_steps(
             // bound bytes
         }
     }
-    assert_eq!(memory, geth_steps[1].memory.borrow().0);
+    if geth_steps[1].memory.borrow().is_empty() {
+        geth_steps[1].memory.replace(Memory::from(memory.clone()));
+    } else {
+        assert_eq!(memory, geth_steps[1].memory.borrow().0);
+    }
     state.call_ctx_mut()?.memory = memory;
 
     let mut copied = 0;

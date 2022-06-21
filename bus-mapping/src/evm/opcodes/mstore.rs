@@ -2,7 +2,7 @@ use super::Opcode;
 use crate::circuit_input_builder::{CircuitInputStateRef, ExecStep};
 use crate::Error;
 use core::convert::TryInto;
-use eth_types::evm_types::MemoryAddress;
+use eth_types::evm_types::{Memory, MemoryAddress};
 use eth_types::{GethExecStep, ToBigEndian, ToLittleEndian};
 
 /// Placeholder structure used to implement [`Opcode`] trait over it
@@ -54,8 +54,13 @@ impl<const IS_MSTORE8: bool> Opcode for Mstore<IS_MSTORE8> {
                 memory[mem_starts..mem_starts + 32].copy_from_slice(&bytes);
             }
         }
-        assert_eq!(memory, geth_steps[1].memory.borrow().0);
+        if geth_steps[1].memory.borrow().is_empty() {
+            geth_steps[1].memory.replace(Memory::from(memory.clone()));
+        } else {
+            assert_eq!(memory, geth_steps[1].memory.borrow().0);
+        }
         state.call_ctx_mut()?.memory = memory;
+
 
         match IS_MSTORE8 {
             true => {
