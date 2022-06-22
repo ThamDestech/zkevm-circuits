@@ -638,6 +638,18 @@ impl OpcodeId {
             OpcodeId::SELFDESTRUCT => GasCost::SELFDESTRUCT,
         }
     }
+
+    /// Returns if the `OpcodeId` modifies memory
+    pub const fn modifies_memory(&self) -> bool {
+        match self {
+            OpcodeId::MSTORE => true,
+            OpcodeId::CALLDATACOPY => true,
+            OpcodeId::RETURNDATACOPY => true,
+            OpcodeId::EXTCODECOPY => true,
+            OpcodeId::RETURN => true,
+            _ => false,
+        }
+    }
 }
 
 impl TryFrom<u8> for OpcodeId {
