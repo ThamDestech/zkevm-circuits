@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use crate::circuit_input_builder::{CircuitInputStateRef, ExecStep};
 use crate::evm::Opcode;
 use crate::Error;
@@ -20,7 +21,7 @@ impl Opcode for Returndatacopy {
         let call = state.call_ctx()?;
         let return_data = &call.return_data;
 
-        let mut memory = geth_step.memory.borrow().0.clone();
+        let mut memory = geth_step.memory.borrow().clone();
         let length = size.as_usize();
         if length != 0 {
             let mem_starts = dest_offset.as_usize();
@@ -29,19 +30,12 @@ impl Opcode for Returndatacopy {
             let data_ends = data_starts + length;
             let minimal_length = dest_offset.as_usize() + length;
             if data_ends <= return_data.len() {
-                if minimal_length > memory.len() {
-                    let resize = if minimal_length % 32 == 0 {
-                        minimal_length
-                    } else {
-                        (minimal_length / 32 + 1) * 32
-                    };
-                    memory.resize(resize, 0);
-                }
+                memory.extend_at_least(minimal_length);
                 memory[mem_starts..mem_ends].copy_from_slice(&return_data[data_starts..data_ends]);
                 if geth_steps[1].memory.borrow().is_empty() {
                     geth_steps[1].memory.replace(Memory::from(memory.clone()));
                 } else {
-                    assert_eq!(memory, geth_steps[1].memory.borrow().0);
+                    assert_eq!(&memory, geth_steps[1].memory.borrow().deref());
                 }
             } else {
                 assert_eq!(geth_steps.len(), 1);

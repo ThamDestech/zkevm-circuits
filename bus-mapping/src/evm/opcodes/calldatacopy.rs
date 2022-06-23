@@ -1,3 +1,4 @@
+use std::ops::Deref;
 use super::Opcode;
 use crate::operation::{CallContextField, MemoryOp, RW};
 use crate::Error;
@@ -139,18 +140,10 @@ fn gen_memory_copy_steps(
         call_data_offset + call_data_length,
     );
 
-    // TODO: COMPLETE MEMORY RECONSTRUCTION
-    let mut memory = geth_steps[0].memory.borrow().0.clone();
+    let mut memory = geth_steps[0].memory.borrow().clone();
     if length != 0 {
         let minimal_length = memory_offset as usize + length;
-        if minimal_length > memory.len() {
-            let resize = if minimal_length % 32 == 0 {
-                minimal_length
-            } else {
-                (minimal_length / 32 + 1) * 32
-            };
-            memory.resize(resize, 0);
-        }
+        memory.extend_at_least(minimal_length);
 
         let mem_starts = memory_offset as usize;
         let mem_ends = mem_starts + length as usize;
@@ -170,9 +163,9 @@ fn gen_memory_copy_steps(
     if geth_steps[1].memory.borrow().is_empty() {
         geth_steps[1].memory.replace(Memory::from(memory.clone()));
     } else {
-        assert_eq!(memory, geth_steps[1].memory.borrow().0);
+        assert_eq!(&memory, geth_steps[1].memory.borrow().deref());
     }
-    state.call_ctx_mut()?.memory = memory;
+    state.call_ctx_mut()?.memory = memory.0;
 
     let mut copied = 0;
     let mut steps = vec![];

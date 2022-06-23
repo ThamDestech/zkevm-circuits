@@ -2,7 +2,7 @@
 use crate::Error;
 use crate::{DebugByte, ToBigEndian, Word};
 use core::convert::TryFrom;
-use core::ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign, Range, Sub, SubAssign};
 use core::str::FromStr;
 use itertools::Itertools;
 use std::fmt;
@@ -219,20 +219,33 @@ impl From<Vec<Word>> for Memory {
     }
 }
 
-impl Index<MemoryAddress> for Memory {
-    type Output = u8;
-    fn index(&self, index: MemoryAddress) -> &Self::Output {
-        // MemoryAddress is in base 16. Therefore since the vec is not, we need
-        // to shift the addr.
-        &self.0[index.0 >> 5]
+impl Index<Range<usize>> for Memory {
+    type Output = [u8];
+
+    fn index(&self, index: Range<usize>) -> &Self::Output {
+        self.0.index(index)
     }
 }
 
-impl IndexMut<MemoryAddress> for Memory {
-    fn index_mut(&mut self, index: MemoryAddress) -> &mut Self::Output {
+impl IndexMut<Range<usize>> for Memory {
+    fn index_mut(&mut self, index: Range<usize>) -> &mut Self::Output {
+        self.0.index_mut(index)
+    }
+}
+
+impl <A: Into<MemoryAddress>> Index<A> for Memory {
+    type Output = u8;
+
+    fn index(&self, index: A) -> &Self::Output {
         // MemoryAddress is in base 16. Therefore since the vec is not, we need
         // to shift the addr.
-        &mut self.0[index.0 >> 5]
+        &self.0[index.into().0 >> 5]
+    }
+}
+
+impl <A: Into<MemoryAddress>> IndexMut<A> for Memory {
+    fn index_mut(&mut self, index: A) -> &mut Self::Output {
+        &mut self.0[index.into().0 >> 5]
     }
 }
 
@@ -302,6 +315,18 @@ impl Memory {
     /// Returns the size of memory in word.
     pub fn word_size(&self) -> usize {
         self.0.len() / 32
+    }
+
+    /// Resize the memory for at least length and align to 32 bytes.
+    pub fn extend_at_least(&mut self, minimal_length: usize) {
+        if minimal_length > self.0.len() {
+            let resize = if minimal_length % 32 == 0 {
+                minimal_length
+            } else {
+                (minimal_length / 32 + 1) * 32
+            };
+            self.0.resize(resize, 0);
+        }
     }
 }
 

@@ -2,6 +2,7 @@ use super::Opcode;
 use crate::circuit_input_builder::{CircuitInputStateRef, ExecStep};
 use crate::Error;
 use core::convert::TryInto;
+use std::ops::Deref;
 use eth_types::evm_types::{Memory, MemoryAddress};
 use eth_types::{GethExecStep, ToBigEndian, ToLittleEndian};
 
@@ -31,16 +32,9 @@ impl<const IS_MSTORE8: bool> Opcode for Mstore<IS_MSTORE8> {
         // First mem write -> 32 MemoryOp generated.
         let offset_addr: MemoryAddress = offset.try_into()?;
 
-        let mut memory = geth_step.memory.borrow().0.clone();
+        let mut memory = geth_step.memory.borrow().clone();
         let minimal_length = offset_addr.0 + if IS_MSTORE8 { 8 } else { 32 };
-        if minimal_length > memory.len() {
-            let resize = if minimal_length % 32 == 0 {
-                minimal_length
-            } else {
-                (minimal_length / 32 + 1) * 32
-            };
-            memory.resize(resize, 0);
-        }
+        memory.extend_at_least(minimal_length);
 
         let mem_starts = offset_addr.0;
 
@@ -57,9 +51,9 @@ impl<const IS_MSTORE8: bool> Opcode for Mstore<IS_MSTORE8> {
         if geth_steps[1].memory.borrow().is_empty() {
             geth_steps[1].memory.replace(Memory::from(memory.clone()));
         } else {
-            assert_eq!(memory, geth_steps[1].memory.borrow().0);
+            assert_eq!(&memory, geth_steps[1].memory.borrow().deref());
         }
-        state.call_ctx_mut()?.memory = memory;
+        state.call_ctx_mut()?.memory = memory.0;
 
         match IS_MSTORE8 {
             true => {
