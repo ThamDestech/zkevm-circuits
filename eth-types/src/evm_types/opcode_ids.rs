@@ -641,14 +641,7 @@ impl OpcodeId {
 
     /// Returns if the `OpcodeId` modifies memory
     pub const fn modifies_memory(&self) -> bool {
-        match self {
-            OpcodeId::MSTORE => true,
-            OpcodeId::CALLDATACOPY => true,
-            OpcodeId::RETURNDATACOPY => true,
-            OpcodeId::EXTCODECOPY => true,
-            OpcodeId::RETURN => true,
-            _ => false,
-        }
+        matches!(self, OpcodeId::MSTORE | OpcodeId::CALLDATACOPY | OpcodeId::RETURNDATACOPY | OpcodeId::EXTCODECOPY | OpcodeId::RETURN)
     }
 }
 

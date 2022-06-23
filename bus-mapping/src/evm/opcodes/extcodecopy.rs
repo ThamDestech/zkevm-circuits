@@ -4,8 +4,8 @@ use crate::circuit_input_builder::{
 };
 use crate::constants::MAX_COPY_BYTES;
 use crate::Error;
-use eth_types::{GethExecStep, ToAddress, ToWord};
 use eth_types::evm_types::Memory;
+use eth_types::{GethExecStep, ToAddress, ToWord};
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Extcodecopy;

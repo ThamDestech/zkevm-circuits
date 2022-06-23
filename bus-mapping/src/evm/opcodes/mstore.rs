@@ -61,7 +61,6 @@ impl<const IS_MSTORE8: bool> Opcode for Mstore<IS_MSTORE8> {
         }
         state.call_ctx_mut()?.memory = memory;
 
-
         match IS_MSTORE8 {
             true => {
                 // stack write operation for mstore8

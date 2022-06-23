@@ -1,8 +1,8 @@
 use crate::circuit_input_builder::{CircuitInputStateRef, ExecStep};
 use crate::evm::Opcode;
 use crate::Error;
-use eth_types::{Address, GethExecStep, ToAddress, ToBigEndian};
 use eth_types::evm_types::Memory;
+use eth_types::{GethExecStep, ToAddress};
 
 #[derive(Debug, Copy, Clone)]
 pub(crate) struct Return;
@@ -37,7 +37,9 @@ impl Opcode for Return {
                 .copy_from_slice(&geth_steps[0].memory.borrow().0[offset..offset + length]);
             caller_ctx.last_call = Some(current_call);
             if geth_steps[1].memory.borrow().is_empty() {
-                geth_steps[1].memory.replace(Memory::from(caller_ctx.memory.clone()));
+                geth_steps[1]
+                    .memory
+                    .replace(Memory::from(caller_ctx.memory.clone()));
             } else {
                 assert_eq!(&caller_ctx.memory, &geth_steps[1].memory.borrow().0);
             }

@@ -1,4 +1,3 @@
-use eth_types::evm_types::Memory;
 use super::Opcode;
 use crate::operation::{CallContextField, MemoryOp, RW};
 use crate::Error;
@@ -8,6 +7,7 @@ use crate::{
     },
     constants::MAX_COPY_BYTES,
 };
+use eth_types::evm_types::Memory;
 use eth_types::GethExecStep;
 
 #[derive(Clone, Copy, Debug)]

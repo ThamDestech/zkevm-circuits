@@ -5,8 +5,8 @@ use crate::{
     constants::MAX_COPY_BYTES,
     Error,
 };
-use eth_types::{GethExecStep, ToWord};
 use eth_types::evm_types::Memory;
+use eth_types::{GethExecStep, ToWord};
 
 use super::Opcode;
 

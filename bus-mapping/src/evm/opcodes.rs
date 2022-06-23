@@ -243,7 +243,9 @@ pub fn gen_associated_ops(
     if result.is_ok() && !opcode_id.modifies_memory() && geth_steps.len() > 1 {
         // pass memory if not exist
         if geth_steps[1].memory.borrow().is_empty() {
-            geth_steps[1].memory.replace(geth_steps[0].memory.borrow().clone());
+            geth_steps[1]
+                .memory
+                .replace(geth_steps[0].memory.borrow().clone());
         }
     }
     result
