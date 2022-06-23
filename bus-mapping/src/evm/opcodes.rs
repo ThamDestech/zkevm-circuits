@@ -108,7 +108,7 @@ impl Opcode for Dummy {
     }
 }
 
-fn down_cast_to_opcode(opcode_id: &OpcodeId) -> &'static dyn Opcode {
+fn down_cast_to_opcode(opcode_id: &OpcodeId) -> &dyn Opcode {
     if opcode_id.is_push() {
         return &StackOnlyOpcode::<0, 1>;
     }
