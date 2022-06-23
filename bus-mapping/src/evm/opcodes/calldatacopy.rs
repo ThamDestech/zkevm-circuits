@@ -1,4 +1,3 @@
-use std::ops::Deref;
 use super::Opcode;
 use crate::operation::{CallContextField, MemoryOp, RW};
 use crate::Error;
@@ -16,6 +15,7 @@ pub(crate) struct Calldatacopy;
 
 impl Opcode for Calldatacopy {
     fn gen_associated_ops(
+        &self,
         state: &mut CircuitInputStateRef,
         geth_steps: &[GethExecStep],
     ) -> Result<Vec<ExecStep>, Error> {
@@ -24,6 +24,39 @@ impl Opcode for Calldatacopy {
         let memory_copy_steps = gen_memory_copy_steps(state, geth_steps)?;
         exec_steps.extend(memory_copy_steps);
         Ok(exec_steps)
+    }
+
+    fn reconstruct_memory(
+        &self,
+        state: &mut CircuitInputStateRef,
+        geth_steps: &[GethExecStep],
+    ) -> Result<Memory, Error> {
+        let memory_offset = geth_steps[0].stack.nth_last(0)?.as_u64();
+        let data_offset = geth_steps[0].stack.nth_last(1)?.as_u64();
+        let length = geth_steps[0].stack.nth_last(2)?.as_usize();
+
+        let mut memory = geth_steps[0].memory.borrow().clone();
+        if length != 0 {
+            let minimal_length = memory_offset as usize + length;
+            memory.extend_at_least(minimal_length);
+
+            let mem_starts = memory_offset as usize;
+            let mem_ends = mem_starts + length as usize;
+            let data_starts = data_offset as usize;
+            let data_ends = data_starts + length as usize;
+            let call_data = &state.call_ctx()?.call_data;
+            if data_ends <= call_data.len() {
+                memory[mem_starts..mem_ends].copy_from_slice(&call_data[data_starts..data_ends]);
+            } else {
+                let actual_length = call_data.len() - data_starts;
+                let mem_code_ends = mem_starts + actual_length;
+                memory[mem_starts..mem_code_ends].copy_from_slice(&call_data[data_starts..]);
+                // since we already resize the memory, no need to copy 0s for
+                // out of bound bytes
+            }
+        }
+        state.call_ctx_mut()?.memory = memory.0.clone();
+        Ok(memory)
     }
 }
 
@@ -139,33 +172,6 @@ fn gen_memory_copy_steps(
         call_data_offset + data_offset,
         call_data_offset + call_data_length,
     );
-
-    let mut memory = geth_steps[0].memory.borrow().clone();
-    if length != 0 {
-        let minimal_length = memory_offset as usize + length;
-        memory.extend_at_least(minimal_length);
-
-        let mem_starts = memory_offset as usize;
-        let mem_ends = mem_starts + length as usize;
-        let data_starts = data_offset as usize;
-        let data_ends = data_starts + length as usize;
-        let call_data = &state.call_ctx()?.call_data;
-        if data_ends <= call_data.len() {
-            memory[mem_starts..mem_ends].copy_from_slice(&call_data[data_starts..data_ends]);
-        } else {
-            let actual_length = call_data.len() - data_starts;
-            let mem_code_ends = mem_starts + actual_length;
-            memory[mem_starts..mem_code_ends].copy_from_slice(&call_data[data_starts..]);
-            // since we already resize the memory, no need to copy 0s for out of
-            // bound bytes
-        }
-    }
-    if geth_steps[1].memory.borrow().is_empty() {
-        geth_steps[1].memory.replace(Memory::from(memory.clone()));
-    } else {
-        assert_eq!(&memory, geth_steps[1].memory.borrow().deref());
-    }
-    state.call_ctx_mut()?.memory = memory.0;
 
     let mut copied = 0;
     let mut steps = vec![];

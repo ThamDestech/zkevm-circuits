@@ -1,4 +1,3 @@
-use std::ops::Deref;
 use crate::{
     circuit_input_builder::{
         CircuitInputStateRef, CopyDetails, ExecState, ExecStep, StepAuxiliaryData,
@@ -16,6 +15,7 @@ pub(crate) struct Codecopy;
 
 impl Opcode for Codecopy {
     fn gen_associated_ops(
+        &self,
         state: &mut CircuitInputStateRef,
         geth_steps: &[GethExecStep],
     ) -> Result<Vec<ExecStep>, Error> {
@@ -24,6 +24,40 @@ impl Opcode for Codecopy {
         let memory_copy_steps = gen_memory_copy_steps(state, geth_steps)?;
         exec_steps.extend(memory_copy_steps);
         Ok(exec_steps)
+    }
+
+    fn reconstruct_memory(
+        &self,
+        state: &mut CircuitInputStateRef,
+        geth_steps: &[GethExecStep],
+    ) -> Result<Memory, Error> {
+        let dest_offset = geth_steps[0].stack.nth_last(0)?.as_u64();
+        let code_offset = geth_steps[0].stack.nth_last(1)?.as_u64();
+        let length = geth_steps[0].stack.nth_last(2)?.as_u64();
+
+        let code_hash = state.call()?.code_hash;
+        let code = state.code(code_hash)?;
+
+        let mut memory = geth_steps[0].memory.borrow().clone();
+        if length != 0 {
+            let minimal_length = (dest_offset + length) as usize;
+            memory.extend_at_least(minimal_length);
+
+            let mem_starts = dest_offset as usize;
+            let mem_ends = mem_starts + length as usize;
+            let code_starts = code_offset as usize;
+            let code_ends = code_starts + length as usize;
+            if code_ends <= code.len() {
+                memory[mem_starts..mem_ends].copy_from_slice(&code[code_starts..code_ends]);
+            } else {
+                let actual_length = code.len() - code_starts;
+                let mem_code_ends = mem_starts + actual_length;
+                memory[mem_starts..mem_code_ends].copy_from_slice(&code[code_starts..]);
+                // since we already resize the memory, no need to copy 0s for
+                // out of bound bytes
+            }
+        }
+        Ok(memory)
     }
 }
 
@@ -85,33 +119,6 @@ fn gen_memory_copy_steps(
     let code_hash = state.call()?.code_hash;
     let code = state.code(code_hash)?;
     let src_addr_end = code.len() as u64;
-
-    let mut memory = geth_steps[0].memory.borrow().clone();
-    if length != 0 {
-        let minimal_length = (dest_offset + length) as usize;
-        memory.extend_at_least(minimal_length);
-
-        let mem_starts = dest_offset as usize;
-        let mem_ends = mem_starts + length as usize;
-        let code_starts = code_offset as usize;
-        let code_ends = code_starts + length as usize;
-        if code_ends <= code.len() {
-            memory[mem_starts..mem_ends].copy_from_slice(&code[code_starts..code_ends]);
-        } else {
-            let actual_length = code.len() - code_starts;
-            let mem_code_ends = mem_starts + actual_length;
-            memory[mem_starts..mem_code_ends].copy_from_slice(&code[code_starts..]);
-            // since we already resize the memory, no need to copy 0s for out of
-            // bound bytes
-        }
-    }
-
-    if geth_steps[1].memory.borrow().is_empty() {
-        geth_steps[1].memory.replace(Memory::from(memory.clone()));
-    } else {
-        assert_eq!(&memory, geth_steps[1].memory.borrow().deref());
-    }
-    state.call_ctx_mut()?.memory = memory.0;
 
     let code_hash = code_hash.to_word();
     let mut copied = 0;

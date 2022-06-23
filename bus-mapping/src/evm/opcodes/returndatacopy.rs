@@ -1,4 +1,3 @@
-use std::ops::Deref;
 use crate::circuit_input_builder::{CircuitInputStateRef, ExecStep};
 use crate::evm::Opcode;
 use crate::Error;
@@ -10,9 +9,19 @@ pub(crate) struct Returndatacopy;
 
 impl Opcode for Returndatacopy {
     fn gen_associated_ops(
+        &self,
         state: &mut CircuitInputStateRef,
         geth_steps: &[GethExecStep],
     ) -> Result<Vec<ExecStep>, Error> {
+        let exec_step = state.new_step(&geth_steps[0])?;
+        Ok(vec![exec_step])
+    }
+
+    fn reconstruct_memory(
+        &self,
+        state: &mut CircuitInputStateRef,
+        geth_steps: &[GethExecStep],
+    ) -> Result<Memory, Error> {
         let geth_step = &geth_steps[0];
         let dest_offset = geth_step.stack.nth_last(0)?;
         let offset = geth_step.stack.nth_last(1)?;
@@ -32,11 +41,6 @@ impl Opcode for Returndatacopy {
             if data_ends <= return_data.len() {
                 memory.extend_at_least(minimal_length);
                 memory[mem_starts..mem_ends].copy_from_slice(&return_data[data_starts..data_ends]);
-                if geth_steps[1].memory.borrow().is_empty() {
-                    geth_steps[1].memory.replace(Memory::from(memory.clone()));
-                } else {
-                    assert_eq!(&memory, geth_steps[1].memory.borrow().deref());
-                }
             } else {
                 assert_eq!(geth_steps.len(), 1);
                 // if overflows this opcode would fails current context, so
@@ -44,8 +48,7 @@ impl Opcode for Returndatacopy {
             }
         }
 
-        let exec_step = state.new_step(&geth_steps[0])?;
-        Ok(vec![exec_step])
+        Ok(memory)
     }
 }
 

@@ -2,7 +2,6 @@ use super::Opcode;
 use crate::circuit_input_builder::{CircuitInputStateRef, ExecStep};
 use crate::Error;
 use core::convert::TryInto;
-use std::ops::Deref;
 use eth_types::evm_types::{Memory, MemoryAddress};
 use eth_types::{GethExecStep, ToBigEndian, ToLittleEndian};
 
@@ -14,6 +13,7 @@ pub(crate) struct Mstore<const IS_MSTORE8: bool>;
 
 impl<const IS_MSTORE8: bool> Opcode for Mstore<IS_MSTORE8> {
     fn gen_associated_ops(
+        &self,
         state: &mut CircuitInputStateRef,
         geth_steps: &[GethExecStep],
     ) -> Result<Vec<ExecStep>, Error> {
@@ -31,29 +31,6 @@ impl<const IS_MSTORE8: bool> Opcode for Mstore<IS_MSTORE8> {
 
         // First mem write -> 32 MemoryOp generated.
         let offset_addr: MemoryAddress = offset.try_into()?;
-
-        let mut memory = geth_step.memory.borrow().clone();
-        let minimal_length = offset_addr.0 + if IS_MSTORE8 { 8 } else { 32 };
-        memory.extend_at_least(minimal_length);
-
-        let mem_starts = offset_addr.0;
-
-        match IS_MSTORE8 {
-            true => {
-                let val = *value.to_le_bytes().first().unwrap();
-                memory[mem_starts] = val;
-            }
-            false => {
-                let bytes = value.to_be_bytes();
-                memory[mem_starts..mem_starts + 32].copy_from_slice(&bytes);
-            }
-        }
-        if geth_steps[1].memory.borrow().is_empty() {
-            geth_steps[1].memory.replace(Memory::from(memory.clone()));
-        } else {
-            assert_eq!(&memory, geth_steps[1].memory.borrow().deref());
-        }
-        state.call_ctx_mut()?.memory = memory.0;
 
         match IS_MSTORE8 {
             true => {
@@ -74,6 +51,35 @@ impl<const IS_MSTORE8: bool> Opcode for Mstore<IS_MSTORE8> {
         }
 
         Ok(vec![exec_step])
+    }
+
+    fn reconstruct_memory(
+        &self,
+        _state: &mut CircuitInputStateRef,
+        geth_steps: &[GethExecStep],
+    ) -> Result<Memory, Error> {
+        let geth_step = &geth_steps[0];
+        let offset = geth_step.stack.nth_last(0)?;
+        let value = geth_step.stack.nth_last(1)?;
+        let offset_addr: MemoryAddress = offset.try_into()?;
+
+        let mut memory = geth_step.memory.borrow().clone();
+        let minimal_length = offset_addr.0 + if IS_MSTORE8 { 8 } else { 32 };
+        memory.extend_at_least(minimal_length);
+
+        let mem_starts = offset_addr.0;
+
+        match IS_MSTORE8 {
+            true => {
+                let val = *value.to_le_bytes().first().unwrap();
+                memory[mem_starts] = val;
+            }
+            false => {
+                let bytes = value.to_be_bytes();
+                memory[mem_starts..mem_starts + 32].copy_from_slice(&bytes);
+            }
+        }
+        Ok(memory)
     }
 }
 

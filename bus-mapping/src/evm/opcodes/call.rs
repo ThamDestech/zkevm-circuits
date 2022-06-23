@@ -21,6 +21,7 @@ pub(crate) struct Call;
 
 impl Opcode for Call {
     fn gen_associated_ops(
+        &self,
         state: &mut CircuitInputStateRef,
         geth_steps: &[GethExecStep],
     ) -> Result<Vec<ExecStep>, Error> {

@@ -639,9 +639,9 @@ impl OpcodeId {
         }
     }
 
-    /// Returns if the `OpcodeId` modifies memory
-    pub const fn modifies_memory(&self) -> bool {
-        matches!(self, OpcodeId::MSTORE | OpcodeId::CALLDATACOPY | OpcodeId::RETURNDATACOPY | OpcodeId::EXTCODECOPY | OpcodeId::RETURN)
+    /// Returns if the `OpcodeId` needs reconstruction
+    pub const fn need_reconstruction(&self) -> bool {
+        matches!(self, OpcodeId::MSTORE | OpcodeId::CALLDATACOPY | OpcodeId::RETURNDATACOPY | OpcodeId::EXTCODECOPY)
     }
 }
 
