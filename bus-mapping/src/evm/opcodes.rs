@@ -230,7 +230,7 @@ fn down_cast_to_opcode(opcode_id: &OpcodeId) -> &dyn Opcode {
         }
         OpcodeId::CALLCODE | OpcodeId::DELEGATECALL | OpcodeId::STATICCALL => {
             warn!("Using dummy gen_call_ops for opcode {:?}", opcode_id);
-            &DummySelfDestruct
+            &DummyCall
         }
         OpcodeId::CREATE | OpcodeId::CREATE2 => {
             warn!("Using dummy gen_create_ops for opcode {:?}", opcode_id);
