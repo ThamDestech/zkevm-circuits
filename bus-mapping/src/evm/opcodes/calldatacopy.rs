@@ -400,7 +400,7 @@ mod calldatacopy_tests {
 
         // code A calls code B.
         let pushdata = hex::decode("1234567890abcdef").unwrap();
-        let memory_a = std::iter::repeat(0)
+        let _memory_a = std::iter::repeat(0)
             .take(24)
             .chain(pushdata.clone())
             .collect::<Vec<u8>>();

@@ -213,7 +213,7 @@ func Trace(config TraceConfig) ([]*ExecutionResult, error) {
 	// Run the transactions with tracing enabled.
 	executionResults := make([]*ExecutionResult, len(config.Transactions))
 	for i, message := range messages {
-		tracer := logger.NewStructLogger(&logger.Config{EnableMemory: true})
+		tracer := logger.NewStructLogger(&logger.Config{EnableMemory: false})
 		evm := vm.NewEVM(blockCtx, core.NewEVMTxContext(message), stateDB, &chainConfig, vm.Config{Debug: true, Tracer: tracer, NoBaseFee: true})
 
 		result, err := core.ApplyMessage(evm, message, new(core.GasPool).AddGas(message.Gas()))
