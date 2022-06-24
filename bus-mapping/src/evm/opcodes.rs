@@ -260,25 +260,13 @@ pub fn gen_associated_ops(
                 assert_eq!(&memory, geth_steps[1].memory.borrow().deref());
             }
             state.call_ctx_mut()?.memory = memory.0;
-        } else if !opcode_id.is_return() {
-            if geth_steps[1].memory.borrow().is_empty() {
-                geth_steps[1]
-                    .memory
-                    .replace(geth_steps[0].memory.borrow().clone());
-            }
+        } else if !opcode_id.is_return() && geth_steps[1].memory.borrow().is_empty() {
+            geth_steps[1]
+                .memory
+                .replace(geth_steps[0].memory.borrow().clone());
         }
     }
-    let result = opcode.gen_associated_ops(state, geth_steps);
-    // if result.is_ok()
-    //     && geth_steps.len() > 1
-    //     && !opcode_id.need_reconstruction()
-    //     && geth_steps[1].memory.borrow().is_empty()
-    // {
-    //     geth_steps[1]
-    //         .memory
-    //         .replace(geth_steps[0].memory.borrow().clone());
-    // }
-    result
+    opcode.gen_associated_ops(state, geth_steps)
 }
 
 pub fn gen_begin_tx_ops(state: &mut CircuitInputStateRef) -> Result<ExecStep, Error> {
