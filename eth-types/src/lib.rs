@@ -21,7 +21,6 @@ pub mod bytecode;
 pub mod evm_types;
 pub mod geth_types;
 
-use std::cell::RefCell;
 pub use bytecode::Bytecode;
 pub use error::Error;
 use halo2_proofs::{
@@ -31,6 +30,7 @@ use halo2_proofs::{
         group::ff::PrimeField,
     },
 };
+use std::cell::RefCell;
 
 use crate::evm_types::{memory::Memory, stack::Stack, storage::Storage};
 use crate::evm_types::{Gas, GasCost, OpcodeId, ProgramCounter};
@@ -316,14 +316,12 @@ impl<'de> Deserialize<'de> for GethExecStep {
             depth: s.depth,
             error: s.error,
             stack: Stack(s.stack.iter().map(|dw| dw.to_word()).collect::<Vec<Word>>()),
-            memory: RefCell::new(
-                Memory::from(
-                    s.memory
-                        .iter()
-                        .map(|dw| dw.to_word())
-                        .collect::<Vec<Word>>(),
-                )
-            ),
+            memory: RefCell::new(Memory::from(
+                s.memory
+                    .iter()
+                    .map(|dw| dw.to_word())
+                    .collect::<Vec<Word>>(),
+            )),
             storage: Storage(
                 s.storage
                     .iter()
@@ -490,7 +488,7 @@ mod tests {
                         error: None,
                         stack: Stack::new(),
                         storage: Storage(word_map!()),
-                        memory: Memory::new(),
+                        memory: RefCell::new(Memory::new()),
                     },
                     GethExecStep {
                         pc: ProgramCounter(163),
@@ -502,7 +500,11 @@ mod tests {
                         error: None,
                         stack: Stack(vec![word!("0x1003e2d2"), word!("0x2a"), word!("0x0")]),
                         storage: Storage(word_map!("0x0" => "0x6f")),
-                        memory: Memory::from(vec![word!("0x0"), word!("0x0"), word!("0x080")]),
+                        memory: RefCell::new(Memory::from(vec![
+                            word!("0x0"),
+                            word!("0x0"),
+                            word!("0x080")
+                        ])),
                     },
                     GethExecStep {
                         pc: ProgramCounter(189),
@@ -518,7 +520,7 @@ mod tests {
                             word!("0x0")
                         ]),
                         storage: Storage(word_map!()),
-                        memory: Memory::from(vec![
+                        memory: RefCell::new(Memory::from(vec![
                             word!(
                                 "000000000000000000000000b8f67472dcc25589672a61905f7fd63f09e5d470"
                             ),
@@ -537,7 +539,7 @@ mod tests {
                             word!(
                                 "00000000000000000000000000000000000000000000003635c9adc5dea00000"
                             ),
-                        ]),
+                        ])),
                     }
                 ],
             }

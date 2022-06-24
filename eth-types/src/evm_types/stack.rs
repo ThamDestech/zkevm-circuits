@@ -1,10 +1,10 @@
 //! Doc this
-use crate::{Error, ToBigEndian};
 use crate::{DebugWord, Word};
+use crate::{Error, ToBigEndian};
 use core::str::FromStr;
+use serde::ser::SerializeSeq;
 use serde::{Deserialize, Serialize, Serializer};
 use std::fmt;
-use serde::ser::SerializeSeq;
 
 /// Represents a `StackAddress` of the EVM.
 /// The address range goes `TOP -> DOWN (1024, 0]`.
@@ -66,7 +66,10 @@ impl fmt::Debug for Stack {
 }
 
 impl Serialize for Stack {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let mut ser = serializer.serialize_seq(Some(self.0.len()))?;
         for e in self.0.iter() {
             let encoded = hex::encode(e.to_be_bytes());

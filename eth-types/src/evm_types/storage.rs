@@ -1,10 +1,10 @@
 //! Doc this
-use crate::{Error, ToBigEndian};
 use crate::{DebugWord, Word};
+use crate::{Error, ToBigEndian};
+use serde::ser::SerializeMap;
+use serde::{Serialize, Serializer};
 use std::collections::HashMap;
 use std::fmt;
-use serde::{Serialize, Serializer};
-use serde::ser::SerializeMap;
 
 /// Represents a snapshot of the EVM stack state at a certain
 /// execution step height.
@@ -26,7 +26,10 @@ impl fmt::Debug for Storage {
 }
 
 impl Serialize for Storage {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let mut ser = serializer.serialize_map(Some(self.0.len()))?;
         for (k, v) in self.0.iter() {
             ser.serialize_entry(&hex::encode(k.to_be_bytes()), &hex::encode(v.to_be_bytes()))?;

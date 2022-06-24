@@ -5,8 +5,8 @@ use core::convert::TryFrom;
 use core::ops::{Add, AddAssign, Index, IndexMut, Mul, MulAssign, Range, Sub, SubAssign};
 use core::str::FromStr;
 use itertools::Itertools;
-use std::fmt;
 use serde::{Serialize, Serializer};
+use std::fmt;
 
 /// Represents a `MemoryAddress` of the EVM.
 #[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Ord)]
@@ -233,7 +233,7 @@ impl IndexMut<Range<usize>> for Memory {
     }
 }
 
-impl <A: Into<MemoryAddress>> Index<A> for Memory {
+impl<A: Into<MemoryAddress>> Index<A> for Memory {
     type Output = u8;
 
     fn index(&self, index: A) -> &Self::Output {
@@ -243,14 +243,17 @@ impl <A: Into<MemoryAddress>> Index<A> for Memory {
     }
 }
 
-impl <A: Into<MemoryAddress>> IndexMut<A> for Memory {
+impl<A: Into<MemoryAddress>> IndexMut<A> for Memory {
     fn index_mut(&mut self, index: A) -> &mut Self::Output {
         &mut self.0[index.into().0 >> 5]
     }
 }
 
 impl Serialize for Memory {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         let encoded = hex::encode(&self.0);
         serializer.serialize_str(encoded.as_str())
     }

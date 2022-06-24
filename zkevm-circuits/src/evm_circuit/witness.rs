@@ -1378,7 +1378,9 @@ pub fn block_convert(
                     .map(|call| call.code_hash)
                     .unique()
                     .into_iter()
-                    .map(|code_hash| Bytecode::new(code_db.hash_code.get(&code_hash).unwrap().to_vec()))
+                    .map(|code_hash| {
+                        Bytecode::new(code_db.hash_code.get(&code_hash).unwrap().to_vec())
+                    })
             })
             .collect(),
     }
