@@ -333,6 +333,10 @@ impl OpcodeId {
     pub fn is_log(&self) -> bool {
         self.as_u8() >= Self::LOG0.as_u8() && self.as_u8() <= Self::LOG4.as_u8()
     }
+    /// Returns `true` if the `OpcodeId` is a `RETURN` or `REVERT`.
+    pub fn is_return(&self) -> bool {
+        matches!(self, OpcodeId::RETURN | OpcodeId::REVERT)
+    }
 }
 
 impl OpcodeId {

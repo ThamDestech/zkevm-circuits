@@ -260,7 +260,7 @@ pub fn gen_associated_ops(
                 assert_eq!(&memory, geth_steps[1].memory.borrow().deref());
             }
             state.call_ctx_mut()?.memory = memory.0;
-        } else {
+        } else if !opcode_id.is_return() {
             if geth_steps[1].memory.borrow().is_empty() {
                 geth_steps[1]
                     .memory
