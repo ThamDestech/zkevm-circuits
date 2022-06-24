@@ -23,6 +23,7 @@ use std::{collections::HashMap, convert::TryInto, iter};
 use strum::IntoEnumIterator;
 
 mod add_sub;
+mod addmod;
 mod begin_tx;
 mod bitwise;
 mod block_ctx;
@@ -39,6 +40,7 @@ mod codesize;
 mod comparator;
 mod copy_code_to_memory;
 mod copy_to_log;
+mod dummy;
 mod dup;
 mod end_block;
 mod end_tx;
@@ -55,6 +57,7 @@ mod memory;
 mod memory_copy;
 mod msize;
 mod mul_div_mod;
+mod mulmod;
 mod origin;
 mod pc;
 mod pop;
@@ -69,6 +72,7 @@ mod stop;
 mod swap;
 
 use add_sub::AddSubGadget;
+use addmod::AddModGadget;
 use begin_tx::BeginTxGadget;
 use bitwise::BitwiseGadget;
 use block_ctx::{BlockCtxU160Gadget, BlockCtxU256Gadget, BlockCtxU64Gadget};
@@ -85,6 +89,7 @@ use codesize::CodesizeGadget;
 use comparator::ComparatorGadget;
 use copy_code_to_memory::CopyCodeToMemoryGadget;
 use copy_to_log::CopyToLogGadget;
+use dummy::DummyGadget;
 use dup::DupGadget;
 use end_block::EndBlockGadget;
 use end_tx::EndTxGadget;
@@ -101,6 +106,7 @@ use memory::MemoryGadget;
 use memory_copy::CopyToMemoryGadget;
 use msize::MsizeGadget;
 use mul_div_mod::MulDivModGadget;
+use mulmod::MulModGadget;
 use origin::OriginGadget;
 use pc::PcGadget;
 use pop::PopGadget;
@@ -151,6 +157,7 @@ pub(crate) struct ExecutionConfig<F> {
     end_tx_gadget: EndTxGadget<F>,
     // opcode gadgets
     add_sub_gadget: AddSubGadget<F>,
+    addmod_gadget: AddModGadget<F>,
     bitwise_gadget: BitwiseGadget<F>,
     byte_gadget: ByteGadget<F>,
     call_gadget: CallGadget<F>,
@@ -177,12 +184,14 @@ pub(crate) struct ExecutionConfig<F> {
     memory_gadget: MemoryGadget<F>,
     msize_gadget: MsizeGadget<F>,
     mul_div_mod_gadget: MulDivModGadget<F>,
+    mulmod_gadget: MulModGadget<F>,
     origin_gadget: OriginGadget<F>,
     pc_gadget: PcGadget<F>,
     pop_gadget: PopGadget<F>,
     push_gadget: PushGadget<F>,
     selfbalance_gadget: SelfbalanceGadget<F>,
     shr_gadget: ShrGadget<F>,
+    sha3_gadget: DummyGadget<F, 2, 1, { ExecutionState::SHA3 }>,
     signed_comparator_gadget: SignedComparatorGadget<F>,
     signextend_gadget: SignextendGadget<F>,
     sload_gadget: SloadGadget<F>,
@@ -344,6 +353,7 @@ impl<F: Field> ExecutionConfig<F> {
             end_tx_gadget: configure_gadget!(),
             // opcode gadgets
             add_sub_gadget: configure_gadget!(),
+            addmod_gadget: configure_gadget!(),
             bitwise_gadget: configure_gadget!(),
             byte_gadget: configure_gadget!(),
             call_gadget: configure_gadget!(),
@@ -368,11 +378,13 @@ impl<F: Field> ExecutionConfig<F> {
             memory_gadget: configure_gadget!(),
             msize_gadget: configure_gadget!(),
             mul_div_mod_gadget: configure_gadget!(),
+            mulmod_gadget: configure_gadget!(),
             origin_gadget: configure_gadget!(),
             pc_gadget: configure_gadget!(),
             pop_gadget: configure_gadget!(),
             push_gadget: configure_gadget!(),
             selfbalance_gadget: configure_gadget!(),
+            sha3_gadget: configure_gadget!(),
             shr_gadget: configure_gadget!(),
             signed_comparator_gadget: configure_gadget!(),
             signextend_gadget: configure_gadget!(),
@@ -780,6 +792,7 @@ impl<F: Field> ExecutionConfig<F> {
             ExecutionState::EndBlock => assign_exec_step!(self.end_block_gadget),
             // opcode
             ExecutionState::ADD_SUB => assign_exec_step!(self.add_sub_gadget),
+            ExecutionState::ADDMOD => assign_exec_step!(self.addmod_gadget),
             ExecutionState::BITWISE => assign_exec_step!(self.bitwise_gadget),
             ExecutionState::BYTE => assign_exec_step!(self.byte_gadget),
             ExecutionState::CALL => assign_exec_step!(self.call_gadget),
@@ -804,6 +817,7 @@ impl<F: Field> ExecutionConfig<F> {
             ExecutionState::MEMORY => assign_exec_step!(self.memory_gadget),
             ExecutionState::MSIZE => assign_exec_step!(self.msize_gadget),
             ExecutionState::MUL_DIV_MOD => assign_exec_step!(self.mul_div_mod_gadget),
+            ExecutionState::MULMOD => assign_exec_step!(self.mulmod_gadget),
             ExecutionState::ORIGIN => assign_exec_step!(self.origin_gadget),
             ExecutionState::PC => assign_exec_step!(self.pc_gadget),
             ExecutionState::POP => assign_exec_step!(self.pop_gadget),
@@ -813,6 +827,7 @@ impl<F: Field> ExecutionConfig<F> {
             ExecutionState::BLOCKCTXU160 => assign_exec_step!(self.block_ctx_u160_gadget),
             ExecutionState::BLOCKCTXU256 => assign_exec_step!(self.block_ctx_u256_gadget),
             ExecutionState::SELFBALANCE => assign_exec_step!(self.selfbalance_gadget),
+            ExecutionState::SHA3 => assign_exec_step!(self.sha3_gadget),
             ExecutionState::SHR => assign_exec_step!(self.shr_gadget),
             ExecutionState::SIGNEXTEND => assign_exec_step!(self.signextend_gadget),
             ExecutionState::SLOAD => assign_exec_step!(self.sload_gadget),

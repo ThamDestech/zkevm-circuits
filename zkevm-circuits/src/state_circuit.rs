@@ -1,4 +1,5 @@
 //! The state circuit implementation.
+mod binary_number;
 mod constraint_builder;
 mod lexicographic_ordering;
 mod lookups;
@@ -9,9 +10,11 @@ mod test;
 
 use crate::evm_circuit::{
     param::N_BYTES_WORD,
+    table::RwTableTag,
     util::RandomLinearCombination,
     witness::{Rw, RwMap},
 };
+use binary_number::{Chip as BinaryNumberChip, Config as BinaryNumberConfig};
 use constraint_builder::{ConstraintBuilder, Queries};
 use eth_types::{Address, Field, ToLittleEndian};
 use gadgets::is_zero::{IsZeroChip, IsZeroConfig, IsZeroInstruction};
@@ -40,10 +43,10 @@ const N_LIMBS_ID: usize = 2;
 #[derive(Clone)]
 pub struct StateConfig<F: Field> {
     selector: Column<Fixed>, // Figure out why you get errors when this is Selector.
-    // https://github.com/appliedzkp/zkevm-circuits/issues/407
+    // https://github.com/privacy-scaling-explorations/zkevm-circuits/issues/407
     rw_counter: MpiConfig<u32, N_LIMBS_RW_COUNTER>,
     is_write: Column<Advice>,
-    tag: Column<Advice>,
+    tag: BinaryNumberConfig<RwTableTag, 4>,
     id: MpiConfig<u32, N_LIMBS_ID>,
     is_id_unchanged: IsZeroConfig<F>,
     address: MpiConfig<Address, N_LIMBS_ACCOUNT_ADDRESS>,
@@ -60,14 +63,14 @@ type Lookup<F> = (&'static str, Expression<F>, Expression<F>);
 
 /// State Circuit for proving RwTable is valid
 #[derive(Default)]
-pub struct StateCircuit<F: Field> {
+pub struct StateCircuit<F: Field, const N_ROWS: usize> {
     pub(crate) randomness: F,
     pub(crate) rows: Vec<Rw>,
     #[cfg(test)]
-    overrides: HashMap<(test::AdviceColumn, usize), F>,
+    overrides: HashMap<(test::AdviceColumn, isize), F>,
 }
 
-impl<F: Field> StateCircuit<F> {
+impl<F: Field, const N_ROWS: usize> StateCircuit<F, N_ROWS> {
     /// make a new state circuit from an RwMap
     pub fn new(randomness: F, rw_map: RwMap) -> Self {
         let mut rows: Vec<_> = rw_map.0.into_values().flatten().collect();
@@ -92,12 +95,12 @@ impl<F: Field> StateCircuit<F> {
     /// powers of randomness for instance columns
     pub fn instance(&self) -> Vec<Vec<F>> {
         (1..32)
-            .map(|exp| vec![self.randomness.pow(&[exp, 0, 0, 0]); self.rows.len() + 1])
+            .map(|exp| vec![self.randomness.pow(&[exp, 0, 0, 0]); N_ROWS])
             .collect()
     }
 }
 
-impl<F: Field> Circuit<F> for StateCircuit<F> {
+impl<F: Field, const N_ROWS: usize> Circuit<F> for StateCircuit<F, N_ROWS> {
     type Config = StateConfig<F>;
     type FloorPlanner = SimpleFloorPlanner;
 
@@ -110,8 +113,10 @@ impl<F: Field> Circuit<F> for StateCircuit<F> {
         let lookups = LookupsChip::configure(meta);
         let power_of_randomness = [0; N_BYTES_WORD - 1].map(|_| meta.instance_column());
 
-        let [is_write, tag, field_tag, value, is_id_unchanged_column, is_storage_key_unchanged_column] =
-            [0; 6].map(|_| meta.advice_column());
+        let [is_write, field_tag, value, is_id_unchanged_column, is_storage_key_unchanged_column] =
+            [0; 5].map(|_| meta.advice_column());
+
+        let tag = BinaryNumberChip::configure(meta, selector);
 
         let id = MpiChip::configure(meta, selector, lookups.u16);
         let address = MpiChip::configure(meta, selector, lookups.u16);
@@ -191,11 +196,17 @@ impl<F: Field> Circuit<F> for StateCircuit<F> {
         let lexicographic_ordering_chip =
             LexicographicOrderingChip::construct(config.lexicographic_ordering.clone());
 
+        let tag_chip = BinaryNumberChip::construct(config.tag);
+
         layouter.assign_region(
             || "rw table",
             |mut region| {
-                let rows = once(&Rw::Start).chain(&self.rows);
-                let prev_rows = once(&Rw::Start).chain(rows.clone());
+                let padding_length = N_ROWS - self.rows.len();
+                let padding = (1..=padding_length).map(|rw_counter| Rw::Start { rw_counter });
+
+                let rows = padding.chain(self.rows.iter().cloned());
+                let prev_rows = once(None).chain(rows.clone().map(Some));
+
                 for (offset, (row, prev_row)) in rows.zip(prev_rows).enumerate() {
                     region.assign_fixed(|| "selector", config.selector, offset, || Ok(F::one()))?;
                     config
@@ -207,12 +218,7 @@ impl<F: Field> Circuit<F> for StateCircuit<F> {
                         offset,
                         || Ok(if row.is_write() { F::one() } else { F::zero() }),
                     )?;
-                    region.assign_advice(
-                        || "tag",
-                        config.tag,
-                        offset,
-                        || Ok(F::from(row.tag() as u64)),
-                    )?;
+                    tag_chip.assign(&mut region, offset, &row.tag())?;
                     if let Some(id) = row.id() {
                         config.id.assign(&mut region, offset, id as u32)?;
                     }
@@ -242,8 +248,8 @@ impl<F: Field> Circuit<F> for StateCircuit<F> {
                         || Ok(row.value_assignment(self.randomness)),
                     )?;
 
-                    if offset != 0 {
-                        lexicographic_ordering_chip.assign(&mut region, offset, row, prev_row)?;
+                    if let Some(prev_row) = prev_row {
+                        lexicographic_ordering_chip.assign(&mut region, offset, &row, &prev_row)?;
 
                         let id_change = F::from(row.id().unwrap_or_default() as u64)
                             - F::from(prev_row.id().unwrap_or_default() as u64);
@@ -265,9 +271,12 @@ impl<F: Field> Circuit<F> for StateCircuit<F> {
                 }
 
                 #[cfg(test)]
-                for ((column, offset), &f) in &self.overrides {
+                for ((column, row_offset), &f) in &self.overrides {
                     let advice_column = column.value(&config);
-                    region.assign_advice(|| "override", advice_column, *offset, || Ok(f))?;
+                    let offset =
+                        usize::try_from(isize::try_from(padding_length).unwrap() + *row_offset)
+                            .unwrap();
+                    region.assign_advice(|| "override", advice_column, offset, || Ok(f))?;
                 }
 
                 Ok(())
@@ -279,10 +288,15 @@ impl<F: Field> Circuit<F> for StateCircuit<F> {
 fn queries<F: Field>(meta: &mut VirtualCells<'_, F>, c: &StateConfig<F>) -> Queries<F> {
     Queries {
         selector: meta.query_fixed(c.selector, Rotation::cur()),
+        lexicographic_ordering_selector: meta
+            .query_fixed(c.lexicographic_ordering.selector, Rotation::cur()),
         rw_counter: MpiQueries::new(meta, c.rw_counter),
         is_write: meta.query_advice(c.is_write, Rotation::cur()),
-        tag: meta.query_advice(c.tag, Rotation::cur()),
-        prev_tag: meta.query_advice(c.tag, Rotation::prev()),
+        tag: c.tag.value(Rotation::cur())(meta),
+        tag_bits: c
+            .tag
+            .bits
+            .map(|bit| meta.query_advice(bit, Rotation::cur())),
         id: MpiQueries::new(meta, c.id),
         is_id_unchanged: c.is_id_unchanged.is_zero_expression.clone(),
         address: MpiQueries::new(meta, c.address),

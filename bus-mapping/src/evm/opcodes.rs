@@ -140,7 +140,7 @@ fn down_cast_to_opcode(opcode_id: &OpcodeId) -> &dyn Opcode {
         OpcodeId::SHL => &StackOnlyOpcode::<2, 1>,
         OpcodeId::SHR => &StackOnlyOpcode::<2, 1>,
         OpcodeId::SAR => &StackOnlyOpcode::<2, 1>,
-        // OpcodeId::SHA3 => &{},
+        OpcodeId::SHA3 => &StackOnlyOpcode::<2, 1>,
         // OpcodeId::ADDRESS => &{},
         // OpcodeId::BALANCE => &{},
         OpcodeId::ORIGIN => &Origin,
