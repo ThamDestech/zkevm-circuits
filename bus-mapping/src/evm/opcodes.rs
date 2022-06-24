@@ -251,25 +251,33 @@ pub fn gen_associated_ops(
     geth_steps: &[GethExecStep],
 ) -> Result<Vec<ExecStep>, Error> {
     let opcode = down_cast_to_opcode(opcode_id);
-    if geth_steps.len() > 1 && opcode_id.need_reconstruction() {
-        let memory = opcode.reconstruct_memory(state, geth_steps)?;
-        if geth_steps[1].memory.borrow().is_empty() {
-            geth_steps[1].memory.replace(memory.clone());
+    if geth_steps.len() > 1 {
+        if opcode_id.need_reconstruction() {
+            let memory = opcode.reconstruct_memory(state, geth_steps)?;
+            if geth_steps[1].memory.borrow().is_empty() {
+                geth_steps[1].memory.replace(memory.clone());
+            } else {
+                assert_eq!(&memory, geth_steps[1].memory.borrow().deref());
+            }
+            state.call_ctx_mut()?.memory = memory.0;
         } else {
-            assert_eq!(&memory, geth_steps[1].memory.borrow().deref());
+            if geth_steps[1].memory.borrow().is_empty() {
+                geth_steps[1]
+                    .memory
+                    .replace(geth_steps[0].memory.borrow().clone());
+            }
         }
-        state.call_ctx_mut()?.memory = memory.0;
     }
     let result = opcode.gen_associated_ops(state, geth_steps);
-    if result.is_ok()
-        && geth_steps.len() > 1
-        && !opcode_id.need_reconstruction()
-        && geth_steps[1].memory.borrow().is_empty()
-    {
-        geth_steps[1]
-            .memory
-            .replace(geth_steps[0].memory.borrow().clone());
-    }
+    // if result.is_ok()
+    //     && geth_steps.len() > 1
+    //     && !opcode_id.need_reconstruction()
+    //     && geth_steps[1].memory.borrow().is_empty()
+    // {
+    //     geth_steps[1]
+    //         .memory
+    //         .replace(geth_steps[0].memory.borrow().clone());
+    // }
     result
 }
 
