@@ -48,9 +48,10 @@ impl Opcode for Calldatacopy {
             if data_ends <= call_data.len() {
                 memory[mem_starts..mem_ends].copy_from_slice(&call_data[data_starts..data_ends]);
             } else {
-                let actual_length = call_data.len() - data_starts;
-                let mem_code_ends = mem_starts + actual_length;
-                memory[mem_starts..mem_code_ends].copy_from_slice(&call_data[data_starts..]);
+                if let Some(actual_length) = call_data.len().checked_sub(data_starts) {
+                    let mem_code_ends = mem_starts + actual_length;
+                    memory[mem_starts..mem_code_ends].copy_from_slice(&call_data[data_starts..]);
+                }
                 // since we already resize the memory, no need to copy 0s for
                 // out of bound bytes
             }
