@@ -19,8 +19,10 @@ impl Opcode for Return {
         let offset = geth_step.stack.nth_last(0)?.as_usize();
         let length = geth_step.stack.nth_last(1)?.as_usize();
 
+        // skip reconstruction for root-level return/revert
         if !current_call.is_root {
             if !current_call.is_create() {
+                // handle normal return/revert
                 // copy return data
                 let (_, caller_idx) = state
                     .block_ctx
