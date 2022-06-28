@@ -337,6 +337,10 @@ impl OpcodeId {
     pub fn is_return(&self) -> bool {
         matches!(self, OpcodeId::RETURN | OpcodeId::REVERT)
     }
+    /// Returns `true` if the `OpcodeId` is a CALL-like.
+    pub fn is_call(&self) -> bool {
+        matches!(self, OpcodeId::CALL | OpcodeId::CALLCODE | OpcodeId::DELEGATECALL | OpcodeId::STATICCALL )
+    }
 }
 
 impl OpcodeId {
