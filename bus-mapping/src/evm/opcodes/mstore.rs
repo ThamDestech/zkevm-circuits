@@ -72,7 +72,7 @@ impl<const IS_MSTORE8: bool> Opcode for Mstore<IS_MSTORE8> {
         match IS_MSTORE8 {
             true => {
                 let val = *value.to_le_bytes().first().unwrap();
-                memory[mem_starts] = val;
+                memory.0[mem_starts] = val;
             }
             false => {
                 let bytes = value.to_be_bytes();

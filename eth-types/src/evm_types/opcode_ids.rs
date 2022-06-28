@@ -654,9 +654,12 @@ impl OpcodeId {
     pub const fn need_reconstruction(&self) -> bool {
         matches!(
             self,
-            OpcodeId::MSTORE
+            OpcodeId::MLOAD
+                | OpcodeId::MSTORE
+                | OpcodeId::MSTORE8
                 | OpcodeId::CALLDATACOPY
                 | OpcodeId::RETURNDATACOPY
+                | OpcodeId::CODECOPY
                 | OpcodeId::EXTCODECOPY
         )
     }
