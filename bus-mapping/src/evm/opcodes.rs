@@ -262,7 +262,8 @@ pub fn gen_associated_ops(
             state.call_ctx_mut()?.memory = memory.0;
         } else if !opcode_id.is_return() // HANDLE `RETURN` memory reconstruct in its gen_associated_ops
             && !opcode_id.is_call() // SHOULD NOT pass memory into a new context
-            && geth_steps[1].memory.borrow().is_empty() // ONLY pass memory if not exist
+            && geth_steps[1].memory.borrow().is_empty()
+        // ONLY pass memory if not exist
         {
             geth_steps[1]
                 .memory
