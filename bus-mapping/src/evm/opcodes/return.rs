@@ -19,37 +19,39 @@ impl Opcode for Return {
         let offset = geth_step.stack.nth_last(0)?.as_usize();
         let length = geth_step.stack.nth_last(1)?.as_usize();
 
-        if !current_call.is_create() {
-            // copy return data
-            let (_, caller_idx) = state
-                .block_ctx
-                .call_map
-                .get(&current_call.caller_id)
-                .expect("caller id not found in call map");
-            let caller_ctx = &mut state.tx_ctx.calls[*caller_idx];
-            // update to the caller memory
-            let return_offset = current_call.return_data_offset as usize;
-            caller_ctx.memory.resize(return_offset + length, 0);
-            caller_ctx.memory[return_offset..return_offset + length]
-                .copy_from_slice(&geth_steps[0].memory.borrow().0[offset..offset + length]);
-            caller_ctx.return_data.resize(length as usize, 0);
-            caller_ctx
-                .return_data
-                .copy_from_slice(&geth_steps[0].memory.borrow().0[offset..offset + length]);
-            caller_ctx.last_call = Some(current_call);
-            if geth_steps[1].memory.borrow().is_empty() {
-                geth_steps[1]
-                    .memory
-                    .replace(Memory::from(caller_ctx.memory.clone()));
+        if !current_call.is_root {
+            if !current_call.is_create() {
+                // copy return data
+                let (_, caller_idx) = state
+                    .block_ctx
+                    .call_map
+                    .get(&current_call.caller_id)
+                    .expect("caller id not found in call map");
+                let caller_ctx = &mut state.tx_ctx.calls[*caller_idx];
+                // update to the caller memory
+                let return_offset = current_call.return_data_offset as usize;
+                caller_ctx.memory.resize(return_offset + length, 0);
+                caller_ctx.memory[return_offset..return_offset + length]
+                    .copy_from_slice(&geth_steps[0].memory.borrow().0[offset..offset + length]);
+                caller_ctx.return_data.resize(length as usize, 0);
+                caller_ctx
+                    .return_data
+                    .copy_from_slice(&geth_steps[0].memory.borrow().0[offset..offset + length]);
+                caller_ctx.last_call = Some(current_call);
+                if geth_steps[1].memory.borrow().is_empty() {
+                    geth_steps[1]
+                        .memory
+                        .replace(Memory::from(caller_ctx.memory.clone()));
+                } else {
+                    assert_eq!(&caller_ctx.memory, &geth_steps[1].memory.borrow().0);
+                }
             } else {
-                assert_eq!(&caller_ctx.memory, &geth_steps[1].memory.borrow().0);
+                // dealing with contract creation
+                assert!(offset + length <= geth_step.memory.borrow().0.len());
+                let code = geth_step.memory.borrow().0[offset..offset + length].to_vec();
+                let contract_addr = geth_steps[1].stack.nth_last(0)?.to_address();
+                state.code_db.insert(Some(contract_addr), code);
             }
-        } else {
-            // dealing with contract creation
-            assert!(offset + length <= geth_step.memory.borrow().0.len());
-            let code = geth_step.memory.borrow().0[offset..offset + length].to_vec();
-            let contract_addr = geth_steps[1].stack.nth_last(0)?.to_address();
-            state.code_db.insert(Some(contract_addr), code);
         }
 
         // let mut exec_steps = vec![gen_calldatacopy_step(state, geth_step)?];
