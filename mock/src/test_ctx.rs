@@ -5,9 +5,11 @@ use eth_types::{
     geth_types::{Account, BlockConstants, GethData},
     Block, Bytecode, Error, GethExecTrace, Transaction, Word,
 };
-use external_tracer::{trace, LoggerConfig, TraceConfig};
+use external_tracer::{trace, TraceConfig};
 use helpers::*;
 use itertools::Itertools;
+
+pub use external_tracer::LoggerConfig;
 
 /// TestContext is a type that contains all the information from a block
 /// required to build the circuit inputs.

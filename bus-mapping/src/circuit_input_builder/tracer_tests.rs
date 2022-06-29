@@ -12,7 +12,7 @@ use eth_types::{
     address, bytecode, geth_types::GethData, word, Bytecode, Hash, ToAddress, ToWord, Word,
 };
 use lazy_static::lazy_static;
-use mock::test_ctx::{helpers::*, TestContext};
+use mock::test_ctx::{helpers::*, TestContext, LoggerConfig};
 use mock::MOCK_COINBASE;
 use pretty_assertions::assert_eq;
 use std::collections::HashSet;
@@ -135,7 +135,7 @@ fn tracer_err_depth() {
     };
 
     // Create a custom tx setting Gas to
-    let block: GethData = TestContext::<2, 1>::new(
+    let block: GethData = TestContext::<2, 1>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -153,6 +153,7 @@ fn tracer_err_depth() {
                 .gas(Word::from(10u64.pow(15)));
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -210,7 +211,7 @@ fn tracer_err_insufficient_balance() {
     };
 
     // Get the execution steps from the external tracer
-    let block: GethData = TestContext::<3, 2>::new(
+    let block: GethData = TestContext::<3, 2>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -231,6 +232,7 @@ fn tracer_err_insufficient_balance() {
                 .nonce(Word::one());
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -324,7 +326,7 @@ fn tracer_err_address_collision() {
     };
     code_b.append(&code_b_end);
     // Get the execution steps from the external tracer
-    let block: GethData = TestContext::<3, 2>::new(
+    let block: GethData = TestContext::<3, 2>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -343,6 +345,7 @@ fn tracer_err_address_collision() {
                 .nonce(Word::one());
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -460,7 +463,7 @@ fn tracer_err_code_store_out_of_gas() {
     };
     code_b.append(&code_b_end);
     // Get the execution steps from the external tracer
-    let block: GethData = TestContext::<3, 2>::new(
+    let block: GethData = TestContext::<3, 2>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -479,6 +482,7 @@ fn tracer_err_code_store_out_of_gas() {
                 .nonce(Word::one());
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -566,7 +570,7 @@ fn tracer_err_invalid_code() {
     };
     code_b.append(&code_b_end);
     // Get the execution steps from the external tracer
-    let block: GethData = TestContext::<3, 2>::new(
+    let block: GethData = TestContext::<3, 2>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -585,6 +589,7 @@ fn tracer_err_invalid_code() {
                 .nonce(Word::one());
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -670,7 +675,7 @@ fn tracer_err_max_code_size_exceeded() {
     };
     code_b.append(&code_b_end);
     // Get the execution steps from the external tracer
-    let block: GethData = TestContext::<3, 2>::new(
+    let block: GethData = TestContext::<3, 2>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -689,6 +694,7 @@ fn tracer_err_max_code_size_exceeded() {
                 .nonce(Word::one());
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -764,7 +770,7 @@ fn tracer_create_stop() {
     };
     code_b.append(&code_b_end);
     // Get the execution steps from the external tracer
-    let block: GethData = TestContext::<3, 2>::new(
+    let block: GethData = TestContext::<3, 2>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -785,6 +791,7 @@ fn tracer_create_stop() {
                 .nonce(Word::one());
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -839,7 +846,7 @@ fn tracer_err_invalid_jump() {
         STOP
     };
     let index = 1; // JUMP
-    let block: GethData = TestContext::<2, 1>::new(
+    let block: GethData = TestContext::<2, 1>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -854,6 +861,7 @@ fn tracer_err_invalid_jump() {
             txs[0].to(accs[0].address).from(accs[1].address);
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -886,7 +894,7 @@ fn tracer_err_invalid_jump() {
     let index = 8; // JUMP
 
     // Get the execution steps from the external tracer
-    let block: GethData = TestContext::<3, 2>::new(
+    let block: GethData = TestContext::<3, 2>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -905,6 +913,7 @@ fn tracer_err_invalid_jump() {
                 .nonce(Word::one());
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -939,7 +948,7 @@ fn tracer_err_execution_reverted() {
         STOP
     };
     let index = 2; // REVERT
-    let block: GethData = TestContext::<2, 1>::new(
+    let block: GethData = TestContext::<2, 1>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -954,6 +963,7 @@ fn tracer_err_execution_reverted() {
             txs[0].to(accs[0].address).from(accs[1].address);
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -987,7 +997,7 @@ fn tracer_err_execution_reverted() {
     let index = 10; // REVERT
 
     // Get the execution steps from the external tracer
-    let block: GethData = TestContext::<3, 2>::new(
+    let block: GethData = TestContext::<3, 2>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -1006,6 +1016,7 @@ fn tracer_err_execution_reverted() {
                 .nonce(Word::one());
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -1048,7 +1059,7 @@ fn tracer_stop() {
     let index = 10; // STOP
 
     // Get the execution steps from the external tracer
-    let block: GethData = TestContext::<3, 2>::new(
+    let block: GethData = TestContext::<3, 2>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -1067,6 +1078,7 @@ fn tracer_stop() {
                 .nonce(Word::one());
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -1122,7 +1134,7 @@ fn tracer_err_return_data_out_of_bounds() {
         RETURN
     };
     // Get the execution steps from the external tracer
-    let block: GethData = TestContext::<3, 2>::new(
+    let block: GethData = TestContext::<3, 2>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -1143,6 +1155,7 @@ fn tracer_err_return_data_out_of_bounds() {
                 .nonce(Word::one());
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -1179,7 +1192,7 @@ fn tracer_err_gas_uint_overflow() {
         PUSH32(0x100_0000_0000_0000_0000_u128) // offset
         MSTORE
     };
-    let block: GethData = TestContext::<2, 1>::new(
+    let block: GethData = TestContext::<2, 1>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -1194,6 +1207,7 @@ fn tracer_err_gas_uint_overflow() {
             txs[0].to(accs[0].address).from(accs[1].address);
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -1217,7 +1231,7 @@ fn tracer_err_invalid_opcode() {
     let mut code = bytecode::Bytecode::default();
     code.write_op(OpcodeId::PC);
     code.write(0x0f);
-    let block: GethData = TestContext::<2, 1>::new(
+    let block: GethData = TestContext::<2, 1>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -1232,6 +1246,7 @@ fn tracer_err_invalid_opcode() {
             txs[0].to(accs[0].address).from(accs[1].address);
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -1270,7 +1285,7 @@ fn tracer_err_write_protection() {
         PUSH3(0xbb)
     };
     // Get the execution steps from the external tracer
-    let block: GethData = TestContext::<3, 2>::new(
+    let block: GethData = TestContext::<3, 2>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -1289,6 +1304,7 @@ fn tracer_err_write_protection() {
                 .nonce(Word::one());
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -1339,7 +1355,7 @@ fn tracer_err_out_of_gas() {
         PUSH1(0x2)
     };
     // Create a custom tx setting Gas to
-    let block: GethData = TestContext::<2, 1>::new(
+    let block: GethData = TestContext::<2, 1>::new_with_logger_config(
         None,
         account_0_code_account_1_no_code(code),
         |mut txs, accs| {
@@ -1349,6 +1365,7 @@ fn tracer_err_out_of_gas() {
                 .gas(Word::from(21004u64));
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -1364,11 +1381,12 @@ fn tracer_err_stack_overflow() {
     for i in 0u64..1025 {
         code.push(2, Word::from(i));
     }
-    let block: GethData = TestContext::<2, 1>::new(
+    let block: GethData = TestContext::<2, 1>::new_with_logger_config(
         None,
         account_0_code_account_1_no_code(code),
         tx_from_1_to_0,
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -1394,11 +1412,12 @@ fn tracer_err_stack_underflow() {
     let code = bytecode! {
         SWAP5
     };
-    let block: GethData = TestContext::<2, 1>::new(
+    let block: GethData = TestContext::<2, 1>::new_with_logger_config(
         None,
         account_0_code_account_1_no_code(code),
         tx_from_1_to_0,
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -1473,7 +1492,7 @@ fn create2_address() {
     };
     code_b.append(&code_b_end);
     // Get the execution steps from the external tracer
-    let block: GethData = TestContext::<3, 2>::new(
+    let block: GethData = TestContext::<3, 2>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -1492,6 +1511,7 @@ fn create2_address() {
                 .nonce(Word::one());
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -1579,7 +1599,7 @@ fn create_address() {
     };
     code_b.append(&code_b_end);
     // Get the execution steps from the external tracer
-    let block: GethData = TestContext::<3, 2>::new(
+    let block: GethData = TestContext::<3, 2>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -1598,6 +1618,7 @@ fn create_address() {
                 .nonce(Word::one());
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -1673,7 +1694,7 @@ fn test_gen_access_trace() {
     };
 
     // Get the execution steps from the external tracer
-    let block: GethData = TestContext::<3, 2>::new(
+    let block: GethData = TestContext::<3, 2>::new_with_logger_config(
         None,
         |accs| {
             accs[0]
@@ -1690,6 +1711,7 @@ fn test_gen_access_trace() {
                 .nonce(Word::one());
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -1768,7 +1790,7 @@ fn test_gen_access_trace_call_EOA_no_new_stack_frame() {
     };
 
     // Get the execution steps from the external tracer
-    let block: GethData = TestContext::<2, 1>::new(
+    let block: GethData = TestContext::<2, 1>::new_with_logger_config(
         None,
         |accs| {
             accs[0].address(*MOCK_COINBASE).code(code);
@@ -1776,6 +1798,7 @@ fn test_gen_access_trace_call_EOA_no_new_stack_frame() {
         },
         tx_from_1_to_0,
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
@@ -1900,7 +1923,7 @@ fn test_gen_access_trace_create_push_call_stack() {
     code_b.append(&code_b_end);
 
     // Get the execution steps from the external tracer
-    let block: GethData = TestContext::<3, 2>::new(
+    let block: GethData = TestContext::<3, 2>::new_with_logger_config(
         None,
         |accs| {
             accs[0].address(*MOCK_COINBASE).code(code_a);
@@ -1915,6 +1938,7 @@ fn test_gen_access_trace_create_push_call_stack() {
                 .nonce(Word::one());
         },
         |block, _tx| block.number(0xcafeu64),
+        LoggerConfig::enable_memory(),
     )
     .unwrap()
     .into();
