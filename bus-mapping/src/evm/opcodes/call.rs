@@ -4,6 +4,7 @@ use crate::{
     operation::{AccountField, CallContextField, TxAccessListAccountOp, RW},
     Error,
 };
+use eth_types::evm_types::Memory;
 use eth_types::{
     evm_types::{
         gas_utils::{eip150_gas, memory_expansion_gas_cost},
@@ -229,5 +230,20 @@ impl Opcode for Call {
                 Ok(vec![exec_step])
             }
         }
+    }
+
+    fn reconstruct_memory(
+        &self,
+        _state: &mut CircuitInputStateRef,
+        geth_steps: &[GethExecStep],
+    ) -> Result<Memory, Error> {
+        let geth_step = &geth_steps[0];
+        let args_offset = geth_step.stack.nth_last(3)?.as_usize();
+        let args_length = geth_step.stack.nth_last(4)?.as_usize();
+
+        let mut memory = geth_steps[0].memory.borrow().clone();
+        memory.extend_at_least(args_offset + args_length);
+
+        Ok(memory)
     }
 }

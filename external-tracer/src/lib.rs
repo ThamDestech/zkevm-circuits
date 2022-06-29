@@ -57,7 +57,7 @@ impl LoggerConfig {
     pub fn enable_memory() -> Self {
         Self {
             enable_memory: true,
-            .. Self::default()
+            ..Self::default()
         }
     }
 }

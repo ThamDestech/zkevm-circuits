@@ -1,6 +1,7 @@
 use crate::circuit_input_builder::{CircuitInputStateRef, ExecStep};
 use crate::evm::Opcode;
 use crate::Error;
+use core::borrow::Borrow;
 use eth_types::evm_types::Memory;
 use eth_types::{GethExecStep, ToAddress};
 
@@ -13,6 +14,16 @@ impl Opcode for Return {
         state: &mut CircuitInputStateRef,
         geth_steps: &[GethExecStep],
     ) -> Result<Vec<ExecStep>, Error> {
+        let exec_step = state.new_step(&geth_steps[0])?;
+        state.handle_return(&geth_steps[0])?;
+        Ok(vec![exec_step])
+    }
+
+    fn reconstruct_memory(
+        &self,
+        state: &mut CircuitInputStateRef,
+        geth_steps: &[GethExecStep],
+    ) -> Result<Memory, Error> {
         let current_call = state.call()?.clone();
 
         let geth_step = &geth_steps[0];
@@ -24,29 +35,17 @@ impl Opcode for Return {
             if !current_call.is_create() {
                 // handle normal return/revert
                 // copy return data
-                let (_, caller_idx) = state
-                    .block_ctx
-                    .call_map
-                    .get(&current_call.caller_id)
-                    .expect("caller id not found in call map");
-                let caller_ctx = &mut state.tx_ctx.calls[*caller_idx];
                 // update to the caller memory
+                let caller_ctx = state.caller_ctx_mut()?;
                 let return_offset = current_call.return_data_offset as usize;
-                caller_ctx.memory.resize(return_offset + length, 0);
-                caller_ctx.memory[return_offset..return_offset + length]
-                    .copy_from_slice(&geth_steps[0].memory.borrow().0[offset..offset + length]);
+                caller_ctx.memory.extend_at_least(return_offset + length);
+                caller_ctx.memory.0[return_offset..return_offset + length]
+                    .copy_from_slice(&geth_step.memory.borrow().0[offset..offset + length]);
                 caller_ctx.return_data.resize(length as usize, 0);
                 caller_ctx
                     .return_data
-                    .copy_from_slice(&geth_steps[0].memory.borrow().0[offset..offset + length]);
+                    .copy_from_slice(&geth_step.memory.borrow().0[offset..offset + length]);
                 caller_ctx.last_call = Some(current_call);
-                if geth_steps[1].memory.borrow().is_empty() {
-                    geth_steps[1]
-                        .memory
-                        .replace(Memory::from(caller_ctx.memory.clone()));
-                } else {
-                    assert_eq!(&caller_ctx.memory, &geth_steps[1].memory.borrow().0);
-                }
             } else {
                 // dealing with contract creation
                 assert!(offset + length <= geth_step.memory.borrow().0.len());
@@ -54,15 +53,11 @@ impl Opcode for Return {
                 let contract_addr = geth_steps[1].stack.nth_last(0)?.to_address();
                 state.code_db.insert(Some(contract_addr), code);
             }
+            let caller_ctx = state.caller_ctx()?;
+            Ok(caller_ctx.memory.borrow().clone())
+        } else {
+            Ok(geth_steps[0].memory.borrow().clone())
         }
-
-        // let mut exec_steps = vec![gen_calldatacopy_step(state, geth_step)?];
-        // let memory_copy_steps = gen_memory_copy_steps(state, geth_steps)?;
-        // exec_steps.extend(memory_copy_steps);
-        // Ok(exec_steps)
-        let exec_step = state.new_step(&geth_steps[0])?;
-        state.handle_return(&geth_steps[0])?;
-        Ok(vec![exec_step])
     }
 }
 

@@ -12,7 +12,7 @@ use eth_types::{
     address, bytecode, geth_types::GethData, word, Bytecode, Hash, ToAddress, ToWord, Word,
 };
 use lazy_static::lazy_static;
-use mock::test_ctx::{helpers::*, TestContext, LoggerConfig};
+use mock::test_ctx::{helpers::*, LoggerConfig, TestContext};
 use mock::MOCK_COINBASE;
 use pretty_assertions::assert_eq;
 use std::collections::HashSet;

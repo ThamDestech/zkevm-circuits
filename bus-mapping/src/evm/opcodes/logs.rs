@@ -7,7 +7,7 @@ use crate::{
     },
     constants::MAX_COPY_BYTES,
 };
-use eth_types::evm_types::{MemoryAddress, OpcodeId};
+use eth_types::evm_types::{Memory, MemoryAddress, OpcodeId};
 use eth_types::Word;
 use eth_types::{GethExecStep, ToBigEndian, ToWord};
 
@@ -26,6 +26,21 @@ impl Opcode for Log {
         let log_copy_steps = gen_log_copy_steps(state, geth_steps)?;
         exec_steps.extend(log_copy_steps);
         Ok(exec_steps)
+    }
+
+    fn reconstruct_memory(
+        &self,
+        _state: &mut CircuitInputStateRef,
+        geth_steps: &[GethExecStep],
+    ) -> Result<Memory, Error> {
+        let geth_step = &geth_steps[0];
+        let offset = geth_step.stack.nth_last(0)?.as_usize();
+        let length = geth_step.stack.nth_last(1)?.as_usize();
+
+        let mut memory = geth_step.memory.borrow().clone();
+        memory.extend_at_least(offset + length);
+
+        Ok(memory)
     }
 }
 

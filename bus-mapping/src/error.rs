@@ -38,6 +38,8 @@ pub enum Error {
     EthTypeError(eth_types::Error),
     /// EVM Execution error
     ExecutionError(ExecError),
+    /// Internal Code error
+    InternalError(&'static str),
 }
 
 impl From<eth_types::Error> for Error {

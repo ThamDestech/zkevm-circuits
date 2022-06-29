@@ -27,6 +27,7 @@ mod callvalue;
 mod chainid;
 mod codecopy;
 mod codesize;
+mod create;
 mod dup;
 mod extcodecopy;
 mod extcodehash;
@@ -39,15 +40,16 @@ mod origin;
 mod r#return;
 mod returndatacopy;
 mod selfbalance;
+mod sha3;
 mod sload;
 mod sstore;
 mod stackonlyop;
 mod stop;
 mod swap;
 
-use crate::evm::opcodes::extcodecopy::Extcodecopy;
-use crate::evm::opcodes::r#return::Return;
-use crate::evm::opcodes::returndatacopy::Returndatacopy;
+#[cfg(test)]
+mod memory_expansion_test;
+
 use call::Call;
 use calldatacopy::Calldatacopy;
 use calldataload::Calldataload;
@@ -56,15 +58,20 @@ use caller::Caller;
 use callvalue::Callvalue;
 use codecopy::Codecopy;
 use codesize::Codesize;
+use create::DummyCreate;
 use dup::Dup;
 use eth_types::evm_types::Memory;
+use extcodecopy::Extcodecopy;
 use extcodehash::Extcodehash;
 use gasprice::GasPrice;
 use logs::Log;
 use mload::Mload;
 use mstore::Mstore;
 use origin::Origin;
+use r#return::Return;
+use returndatacopy::Returndatacopy;
 use selfbalance::Selfbalance;
+use sha3::Sha3;
 use sload::Sload;
 use sstore::Sstore;
 use stackonlyop::StackOnlyOpcode;
@@ -140,7 +147,7 @@ fn down_cast_to_opcode(opcode_id: &OpcodeId) -> &dyn Opcode {
         OpcodeId::SHL => &StackOnlyOpcode::<2, 1>,
         OpcodeId::SHR => &StackOnlyOpcode::<2, 1>,
         OpcodeId::SAR => &StackOnlyOpcode::<2, 1>,
-        OpcodeId::SHA3 => &StackOnlyOpcode::<2, 1>,
+        OpcodeId::SHA3 => &Sha3,
         // OpcodeId::ADDRESS => &{},
         // OpcodeId::BALANCE => &{},
         OpcodeId::ORIGIN => &Origin,
@@ -243,6 +250,7 @@ fn down_cast_to_opcode(opcode_id: &OpcodeId) -> &dyn Opcode {
     }
 }
 
+#[allow(clippy::collapsible_else_if)]
 /// Generate the associated operations according to the particular
 /// [`OpcodeId`].
 pub fn gen_associated_ops(
@@ -251,24 +259,25 @@ pub fn gen_associated_ops(
     geth_steps: &[GethExecStep],
 ) -> Result<Vec<ExecStep>, Error> {
     let opcode = down_cast_to_opcode(opcode_id);
+
+    let memory = opcode.reconstruct_memory(state, geth_steps)?;
+
     if geth_steps.len() > 1 {
-        if opcode_id.need_reconstruction() {
-            let memory = opcode.reconstruct_memory(state, geth_steps)?;
-            if geth_steps[1].memory.borrow().is_empty() {
-                geth_steps[1].memory.replace(memory.clone());
+        if !geth_steps[1].memory.borrow().is_empty() {
+            // memory trace is enabled or it is a call
+            assert_eq!(geth_steps[1].memory.borrow().deref(), &memory);
+        } else {
+            if opcode_id.is_call() {
+                geth_steps[1].memory.replace(Memory::default());
             } else {
-                assert_eq!(&memory, geth_steps[1].memory.borrow().deref());
+                // debug: enable trace = true
+                // TODO: comment this when mem trace = false(auto) .. heihei...
+                //assert_eq!(&memory, geth_steps[1].memory.borrow().deref());
+                assert_eq!(geth_steps[1].memory.borrow().deref(), &memory);
+                geth_steps[1].memory.replace(memory.clone());
             }
-            state.call_ctx_mut()?.memory = memory.0;
-        } else if !opcode_id.is_return() // HANDLE `RETURN` memory reconstruct in its gen_associated_ops
-            && !opcode_id.is_call() // SHOULD NOT pass memory into a new context
-            && geth_steps[1].memory.borrow().is_empty()
-        // ONLY pass memory if not exist
-        {
-            geth_steps[1]
-                .memory
-                .replace(geth_steps[0].memory.borrow().clone());
         }
+        state.call_ctx_mut()?.memory = memory;
     }
     opcode.gen_associated_ops(state, geth_steps)
 }
@@ -623,87 +632,6 @@ fn dummy_gen_call_ops(
         }
         // 3. Call to account with non-empty code.
         (_, false) => Ok(vec![exec_step]),
-    }
-}
-
-#[derive(Debug, Copy, Clone)]
-struct DummyCreate;
-
-impl Opcode for DummyCreate {
-    fn gen_associated_ops(
-        &self,
-        state: &mut CircuitInputStateRef,
-        geth_steps: &[GethExecStep],
-    ) -> Result<Vec<ExecStep>, Error> {
-        dummy_gen_create_ops(state, geth_steps)
-    }
-}
-fn dummy_gen_create_ops(
-    state: &mut CircuitInputStateRef,
-    geth_steps: &[GethExecStep],
-) -> Result<Vec<ExecStep>, Error> {
-    let geth_step = &geth_steps[0];
-    let mut exec_step = state.new_step(geth_step)?;
-
-    let tx_id = state.tx_ctx.id();
-    let call = state.parse_call(geth_step)?;
-
-    // Increase caller's nonce
-    let nonce_prev = state.sdb.get_nonce(&call.caller_address);
-    state.push_op_reversible(
-        &mut exec_step,
-        RW::WRITE,
-        AccountOp {
-            address: call.caller_address,
-            field: AccountField::Nonce,
-            value: (nonce_prev + 1).into(),
-            value_prev: nonce_prev.into(),
-        },
-    )?;
-
-    // Add callee into access list
-    let is_warm = state.sdb.check_account_in_access_list(&call.address);
-    state.push_op_reversible(
-        &mut exec_step,
-        RW::WRITE,
-        TxAccessListAccountOp {
-            tx_id,
-            address: call.address,
-            is_warm: true,
-            is_warm_prev: is_warm,
-        },
-    )?;
-
-    state.push_call(call.clone(), geth_step);
-
-    // Increase callee's nonce
-    let nonce_prev = state.sdb.get_nonce(&call.address);
-    debug_assert!(nonce_prev == 0);
-    state.push_op_reversible(
-        &mut exec_step,
-        RW::WRITE,
-        AccountOp {
-            address: call.address,
-            field: AccountField::Nonce,
-            value: 1.into(),
-            value_prev: 0.into(),
-        },
-    )?;
-
-    state.transfer(
-        &mut exec_step,
-        call.caller_address,
-        call.address,
-        call.value,
-    )?;
-
-    if call.code_hash.to_fixed_bytes() == *EMPTY_HASH {
-        // 1. Create with empty initcode.
-        state.handle_return(geth_step)?;
-        Ok(vec![exec_step])
-    } else {
-        // 2. Create with non-empty initcode.
-        Ok(vec![exec_step])
     }
 }
 

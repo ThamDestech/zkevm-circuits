@@ -206,7 +206,7 @@ impl<const NACC: usize, const NTX: usize> TestContext<NACC, NTX> {
             acc_fns,
             func_tx,
             func_block,
-            LoggerConfig::default(),
+            LoggerConfig::enable_memory(),
         )
     }
 

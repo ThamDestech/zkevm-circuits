@@ -402,6 +402,24 @@ impl<'a> CircuitInputStateRef<'a> {
         self.tx_ctx.call_ctx_mut()
     }
 
+    pub fn caller_ctx(&self) -> Result<&CallContext, Error> {
+        self.tx_ctx
+            .calls
+            .iter()
+            .rev()
+            .nth(1)
+            .ok_or(Error::InternalError("caller not found in call map"))
+    }
+
+    pub fn caller_ctx_mut(&mut self) -> Result<&mut CallContext, Error> {
+        self.tx_ctx
+            .calls
+            .iter_mut()
+            .rev()
+            .nth(1)
+            .ok_or(Error::InternalError("caller id not found in call map"))
+    }
+
     /// Push a new [`Call`] into the [`Transaction`], and add its index and
     /// [`CallContext`] in the `call_stack` of the [`TransactionContext`]
     pub fn push_call(&mut self, call: Call, step: &GethExecStep) {

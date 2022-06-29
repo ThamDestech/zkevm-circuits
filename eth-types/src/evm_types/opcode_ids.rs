@@ -341,7 +341,11 @@ impl OpcodeId {
     pub fn is_call(&self) -> bool {
         matches!(
             self,
-            OpcodeId::CALL | OpcodeId::CALLCODE | OpcodeId::DELEGATECALL | OpcodeId::STATICCALL
+            OpcodeId::CREATE
+                | OpcodeId::CALL
+                | OpcodeId::CALLCODE
+                | OpcodeId::DELEGATECALL
+                | OpcodeId::STATICCALL
         )
     }
 }
