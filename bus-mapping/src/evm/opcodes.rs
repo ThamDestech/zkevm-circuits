@@ -272,8 +272,7 @@ pub fn gen_associated_ops(
             } else {
                 // debug: enable trace = true
                 // TODO: comment this when mem trace = false(auto) .. heihei...
-                //assert_eq!(&memory, geth_steps[1].memory.borrow().deref());
-                assert_eq!(geth_steps[1].memory.borrow().deref(), &memory);
+                //assert_eq!(geth_steps[1].memory.borrow().deref(), &memory);
                 geth_steps[1].memory.replace(memory.clone());
             }
         }
