@@ -64,7 +64,7 @@ impl<const IS_MSTORE8: bool> Opcode for Mstore<IS_MSTORE8> {
         let offset_addr: MemoryAddress = offset.try_into()?;
 
         let mut memory = geth_step.memory.borrow().clone();
-        let minimal_length = offset_addr.0 + if IS_MSTORE8 { 8 } else { 32 };
+        let minimal_length = offset_addr.0 + if IS_MSTORE8 { 1 } else { 32 };
         memory.extend_at_least(minimal_length);
 
         let mem_starts = offset_addr.0;
