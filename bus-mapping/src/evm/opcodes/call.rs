@@ -1,4 +1,3 @@
-use std::cmp::max;
 use super::Opcode;
 use crate::{
     circuit_input_builder::{CircuitInputStateRef, ExecStep},
@@ -15,6 +14,7 @@ use eth_types::{
 };
 use keccak256::EMPTY_HASH;
 use log::warn;
+use std::cmp::max;
 
 /// Placeholder structure used to implement [`Opcode`] trait over it
 /// corresponding to the `OpcodeId::CALL` `OpcodeId`.
