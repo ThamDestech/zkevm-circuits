@@ -4,7 +4,7 @@ use crate::{
     operation::{AccountField, CallContextField, TxAccessListAccountOp, RW},
     Error,
 };
-use eth_types::evm_types::Memory;
+use eth_types::evm_types::{Memory, OpcodeId};
 use eth_types::{
     evm_types::{
         gas_utils::{eip150_gas, memory_expansion_gas_cost},
@@ -242,8 +242,11 @@ impl Opcode for Call {
         let args_length = geth_step.stack.nth_last(4)?.as_usize();
 
         let mut memory = geth_steps[0].memory.borrow().clone();
-        memory.extend_at_least(args_offset + args_length);
-
+        if !(geth_steps.len() > 1
+            && (geth_steps[1].op == OpcodeId::STOP || geth_steps[0].depth == geth_steps[1].depth))
+        {
+            memory.extend_at_least(args_offset + args_length);
+        }
         Ok(memory)
     }
 }
