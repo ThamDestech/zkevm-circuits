@@ -1,10 +1,11 @@
+use std::cmp::max;
 use super::Opcode;
 use crate::{
     circuit_input_builder::{CircuitInputStateRef, ExecStep},
     operation::{AccountField, CallContextField, TxAccessListAccountOp, RW},
     Error,
 };
-use eth_types::evm_types::{Memory, OpcodeId};
+use eth_types::evm_types::Memory;
 use eth_types::{
     evm_types::{
         gas_utils::{eip150_gas, memory_expansion_gas_cost},
@@ -240,12 +241,23 @@ impl Opcode for Call {
         let geth_step = &geth_steps[0];
         let args_offset = geth_step.stack.nth_last(3)?.as_usize();
         let args_length = geth_step.stack.nth_last(4)?.as_usize();
+        let ret_offset = geth_step.stack.nth_last(5)?.as_usize();
+        let ret_length = geth_step.stack.nth_last(6)?.as_usize();
 
         let mut memory = geth_steps[0].memory.borrow().clone();
-        if !(geth_steps.len() > 1
-            && (geth_steps[1].op == OpcodeId::STOP || geth_steps[0].depth == geth_steps[1].depth))
-        {
-            memory.extend_at_least(args_offset + args_length);
+        let args_minimal = if args_length != 0 {
+            args_offset + args_length
+        } else {
+            0
+        };
+        let ret_minimal = if ret_length != 0 {
+            ret_offset + ret_length
+        } else {
+            0
+        };
+        if args_minimal != 0 || ret_minimal != 0 {
+            let minimal_length = max(args_minimal, ret_minimal);
+            memory.extend_at_least(minimal_length);
         }
         Ok(memory)
     }
