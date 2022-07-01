@@ -23,7 +23,7 @@ fn assert_expanded(traces: &[GethExecStep], before: isize, after: isize) {
 
 fn trace_and_assert<FN>(code: Bytecode, before: isize, after: isize, assert_fn: FN)
 where
-    FN: Fn(&[GethExecStep], isize, isize) -> (),
+    FN: Fn(&[GethExecStep], isize, isize),
 {
     let block: GethData = TestContext::<2, 1>::new_with_logger_config(
         None,

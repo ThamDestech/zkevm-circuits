@@ -268,7 +268,11 @@ pub fn gen_associated_ops(
             assert_eq!(geth_steps[1].memory.borrow().deref(), &memory);
         } else {
             if opcode_id.is_call() {
-                geth_steps[1].memory.replace(Memory::default());
+                if geth_steps[0].depth == geth_steps[1].depth {
+                    geth_steps[1].memory.replace(memory.clone());
+                } else {
+                    geth_steps[1].memory.replace(Memory::default());
+                }
             } else {
                 // debug: enable trace = true
                 // TODO: comment this when mem trace = false(auto) .. heihei...
