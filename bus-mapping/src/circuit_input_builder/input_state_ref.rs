@@ -378,6 +378,13 @@ impl<'a> CircuitInputStateRef<'a> {
             .ok_or(Error::CodeNotFound(code_hash))
     }
 
+    /// Reference to the caller's Call
+    pub fn caller(&self) -> Result<&Call, Error> {
+        self.tx_ctx
+            .caller_index()
+            .map(|caller_idx| &self.tx.calls()[caller_idx])
+    }
+
     /// Reference to the current Call
     pub fn call(&self) -> Result<&Call, Error> {
         self.tx_ctx
@@ -393,6 +400,11 @@ impl<'a> CircuitInputStateRef<'a> {
     }
 
     /// Reference to the current CallContext
+    pub fn caller_ctx(&self) -> Result<&CallContext, Error> {
+        self.tx_ctx.caller_ctx()
+    }
+
+    /// Reference to the current CallContext
     pub fn call_ctx(&self) -> Result<&CallContext, Error> {
         self.tx_ctx.call_ctx()
     }
@@ -400,15 +412,6 @@ impl<'a> CircuitInputStateRef<'a> {
     /// Mutable reference to the call CallContext
     pub fn call_ctx_mut(&mut self) -> Result<&mut CallContext, Error> {
         self.tx_ctx.call_ctx_mut()
-    }
-
-    pub fn caller_ctx(&self) -> Result<&CallContext, Error> {
-        self.tx_ctx
-            .calls
-            .iter()
-            .rev()
-            .nth(1)
-            .ok_or(Error::InternalError("caller not found in call map"))
     }
 
     pub fn caller_ctx_mut(&mut self) -> Result<&mut CallContext, Error> {
