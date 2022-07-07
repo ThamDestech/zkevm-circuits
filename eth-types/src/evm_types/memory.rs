@@ -322,13 +322,9 @@ impl Memory {
 
     /// Resize the memory for at least length and align to 32 bytes.
     pub fn extend_at_least(&mut self, minimal_length: usize) {
-        if minimal_length > self.0.len() {
-            let resize = if minimal_length % 32 == 0 {
-                minimal_length
-            } else {
-                (minimal_length / 32 + 1) * 32
-            };
-            self.0.resize(resize, 0);
+        let memory_size = (minimal_length + 31) / 32 * 32;
+        if memory_size > self.0.len() {
+            self.0.resize(memory_size, 0);
         }
     }
 }

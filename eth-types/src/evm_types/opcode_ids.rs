@@ -329,14 +329,12 @@ impl OpcodeId {
     pub fn is_swap(&self) -> bool {
         self.as_u8() >= Self::SWAP1.as_u8() && self.as_u8() <= Self::SWAP16.as_u8()
     }
+
     /// Returns `true` if the `OpcodeId` is a `LOGn`.
     pub fn is_log(&self) -> bool {
         self.as_u8() >= Self::LOG0.as_u8() && self.as_u8() <= Self::LOG4.as_u8()
     }
-    /// Returns `true` if the `OpcodeId` is a `RETURN` or `REVERT`.
-    pub fn is_return(&self) -> bool {
-        matches!(self, OpcodeId::RETURN | OpcodeId::REVERT)
-    }
+
     /// Returns `true` if the `OpcodeId` is a CALL-like.
     pub fn is_call(&self) -> bool {
         matches!(
@@ -654,8 +652,8 @@ impl OpcodeId {
         }
     }
 
-    /// Returns if the `OpcodeId` needs reconstruction
-    pub const fn need_reconstruction(&self) -> bool {
+    /// Returns if the `OpcodeId` has memory access
+    pub const fn has_memory_access(&self) -> bool {
         matches!(
             self,
             OpcodeId::MLOAD
