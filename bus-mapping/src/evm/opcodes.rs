@@ -3,8 +3,7 @@ use crate::{
     circuit_input_builder::{CircuitInputStateRef, ExecStep},
     evm::OpcodeId,
     operation::{
-        AccountField, AccountOp, CallContextField, TxAccessListAccountOp, TxReceiptField,
-        TxRefundOp, RW,
+        AccountField, CallContextField, TxAccessListAccountOp, TxReceiptField, TxRefundOp, RW,
     },
     Error,
 };
