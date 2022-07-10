@@ -1,7 +1,7 @@
 use super::Opcode;
 use crate::{
     circuit_input_builder::{CircuitInputStateRef, ExecStep},
-    operation::{CallContextField, CallContextOp, RW},
+    operation::CallContextField,
     Error,
 };
 use eth_types::{evm_types::Memory, GethExecStep, ToWord};
@@ -26,25 +26,19 @@ impl Opcode for Stop {
 
         let call = state.call()?.clone();
 
-        state.push_op(
+        state.call_context_read(
             &mut exec_step,
-            RW::READ,
-            CallContextOp {
-                call_id: call.call_id,
-                field: CallContextField::IsSuccess,
-                value: 1.into(),
-            },
+            call.call_id,
+            CallContextField::IsSuccess,
+            1.into(),
         );
 
         if call.is_root {
-            state.push_op(
+            state.call_context_read(
                 &mut exec_step,
-                RW::READ,
-                CallContextOp {
-                    call_id: call.call_id,
-                    field: CallContextField::IsPersistent,
-                    value: 1.into(),
-                },
+                call.call_id,
+                CallContextField::IsPersistent,
+                1.into(),
             );
         } else {
             // The following part corresponds to
@@ -52,14 +46,11 @@ impl Opcode for Stop {
             // in python spec, and should be reusable among all expected halting opcodes or
             // exceptions. TODO: Refactor it as a helper function.
             let caller = state.caller()?.clone();
-            state.push_op(
+            state.call_context_read(
                 &mut exec_step,
-                RW::READ,
-                CallContextOp {
-                    call_id: call.call_id,
-                    field: CallContextField::CallerId,
-                    value: caller.call_id.into(),
-                },
+                call.call_id,
+                CallContextField::CallerId,
+                caller.call_id.into(),
             );
 
             let geth_step_next = &geth_steps[1];
@@ -86,15 +77,7 @@ impl Opcode for Stop {
                     state.caller_ctx()?.reversible_write_counter.into(),
                 ),
             ] {
-                state.push_op(
-                    &mut exec_step,
-                    RW::READ,
-                    CallContextOp {
-                        call_id: caller.call_id,
-                        field,
-                        value,
-                    },
-                );
+                state.call_context_read(&mut exec_step, caller.call_id, field, value);
             }
 
             for (field, value) in [
@@ -102,15 +85,7 @@ impl Opcode for Stop {
                 (CallContextField::LastCalleeReturnDataOffset, 0.into()),
                 (CallContextField::LastCalleeReturnDataLength, 0.into()),
             ] {
-                state.push_op(
-                    &mut exec_step,
-                    RW::WRITE,
-                    CallContextOp {
-                        call_id: caller.call_id,
-                        field,
-                        value,
-                    },
-                );
+                state.call_context_write(&mut exec_step, caller.call_id, field, value);
             }
         }
 
