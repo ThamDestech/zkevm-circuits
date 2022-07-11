@@ -379,9 +379,7 @@ mod test {
         let from = MOCK_ACCOUNTS[1];
 
         let code = bytecode! {
-            PUSH1(0)
-            PUSH1(0)
-            RETURN
+            STOP
         };
 
         let block: GethData = TestContext::<2, 1>::new(
