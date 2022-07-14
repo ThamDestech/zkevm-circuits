@@ -33,8 +33,9 @@ impl Opcode for Extcodecopy {
         let code_offset = geth_steps[0].stack.nth_last(2)?.as_u64();
         let length = geth_steps[0].stack.nth_last(3)?.as_u64();
 
-        let code_hash = state.code_hash(address)?;
-        let code = state.code(code_hash)?;
+        let (exist, account) = state.sdb.get_account(&address);
+        assert!(exist, "target account does not exist");
+        let code = state.code(account.code_hash)?;
 
         let mut memory = geth_steps[0].memory.replace(Memory::default());
         if length != 0 {
@@ -111,11 +112,12 @@ fn gen_memory_copy_steps(
     let code_offset = geth_steps[0].stack.nth_last(2)?.as_u64();
     let length = geth_steps[0].stack.nth_last(3)?.as_u64();
 
-    let code_hash = state.code_hash(address)?;
-    let code = state.code(code_hash)?;
+    let (exist, account) = state.sdb.get_account(&address);
+    assert!(exist, "target account does not exist");
+    let code = state.code(account.code_hash)?;
     let src_addr_end = code.len() as u64;
 
-    let code_source = code_hash.to_word();
+    let code_source = account.code_hash.to_word();
     let mut copied = 0;
     let mut steps = vec![];
     while copied < length {

@@ -17,7 +17,7 @@ use crate::{
 };
 use eth_types::{
     evm_types::{Gas, MemoryAddress, OpcodeId, StackAddress},
-    Address, GethExecStep, Hash, ToAddress, ToBigEndian, Word, H256,
+    Address, GethExecStep, ToAddress, ToBigEndian, Word, H256,
 };
 use ethers_core::utils::{get_contract_address, get_create2_address};
 
@@ -434,14 +434,6 @@ impl<'a> CircuitInputStateRef<'a> {
         value: Word,
     ) -> Result<(), Error> {
         self.transfer_with_fee(step, sender, receiver, value, Word::zero())
-    }
-
-    pub fn code_hash(&self, address: Address) -> Result<Hash, Error> {
-        self.code_db
-            .address_hash
-            .get(&address)
-            .copied()
-            .ok_or(Error::AccountNotFound(address))
     }
 
     /// Fetch and return code for the given code hash from the code DB.
