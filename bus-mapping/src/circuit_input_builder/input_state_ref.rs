@@ -532,7 +532,7 @@ impl<'a> CircuitInputStateRef<'a> {
         Ok(get_create2_address(
             self.call()?.address,
             salt.to_be_bytes().to_vec(),
-            init_code.to_vec(),
+            init_code,
         ))
     }
 
@@ -576,7 +576,7 @@ impl<'a> CircuitInputStateRef<'a> {
         let (code_source, code_hash) = match kind {
             CallKind::Create | CallKind::Create2 => {
                 let init_code = get_create_init_code(step)?;
-                let code_hash = self.code_db.insert(None, init_code.to_vec());
+                let code_hash = self.code_db.insert(None, init_code);
                 (CodeSource::Memory, code_hash)
             }
             _ => {
