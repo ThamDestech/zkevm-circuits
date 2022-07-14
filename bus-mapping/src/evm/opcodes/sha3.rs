@@ -14,7 +14,7 @@ impl Opcode for Sha3 {
         state: &mut CircuitInputStateRef,
         geth_steps: &[GethExecStep],
     ) -> Result<Vec<ExecStep>, Error> {
-        // TODO: memory reads
+        // TODO: add rw operations needed, like memory reads and other lookups
         log::warn!("incomplete SHA3 implementation");
         StackOnlyOpcode::<2, 1>.gen_associated_ops(state, geth_steps)
     }
