@@ -13,6 +13,7 @@ impl Opcode for Returndatacopy {
         state: &mut CircuitInputStateRef,
         geth_steps: &[GethExecStep],
     ) -> Result<Vec<ExecStep>, Error> {
+        // TODO: complete `ExecStep` and circuit implementation
         let exec_step = state.new_step(&geth_steps[0])?;
         Ok(vec![exec_step])
     }

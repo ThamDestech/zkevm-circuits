@@ -15,6 +15,7 @@ impl Opcode for DummyCreate {
         state: &mut CircuitInputStateRef,
         geth_steps: &[GethExecStep],
     ) -> Result<Vec<ExecStep>, Error> {
+        // TODO: replace dummy create here
         dummy_gen_create_ops(state, geth_steps)
     }
 
