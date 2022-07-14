@@ -97,7 +97,7 @@ pub trait Opcode: Debug {
         _state: &mut CircuitInputStateRef,
         geth_steps: &[GethExecStep],
     ) -> Result<Memory, Error> {
-        Ok(geth_steps[0].memory.borrow().clone())
+        Ok(geth_steps[0].memory.replace(Memory::default()))
     }
 }
 

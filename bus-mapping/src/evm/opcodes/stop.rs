@@ -106,7 +106,7 @@ impl Opcode for Stop {
             caller_ctx.memory.extend_at_least(length as usize);
             Ok(caller_ctx.memory.clone())
         } else {
-            Ok(geth_steps[0].memory.borrow().clone())
+            Ok(geth_steps[0].memory.replace(Memory::default()))
         }
     }
 }

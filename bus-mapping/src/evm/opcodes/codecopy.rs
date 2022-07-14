@@ -38,7 +38,7 @@ impl Opcode for Codecopy {
         let code_hash = state.call()?.code_hash;
         let code = state.code(code_hash)?;
 
-        let mut memory = geth_steps[0].memory.borrow().clone();
+        let mut memory = geth_steps[0].memory.replace(Memory::default());
         if length != 0 {
             let minimal_length = (dest_offset + length) as usize;
             memory.extend_at_least(minimal_length);

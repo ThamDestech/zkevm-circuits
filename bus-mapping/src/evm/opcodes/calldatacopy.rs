@@ -34,7 +34,7 @@ impl Opcode for Calldatacopy {
         let memory_offset = geth_steps[0].stack.nth_last(0)?.as_u64();
         let data_offset = geth_steps[0].stack.nth_last(1)?.as_u64();
         let length = geth_steps[0].stack.nth_last(2)?.as_usize();
-        let mut memory = geth_steps[0].memory.borrow().clone();
+        let mut memory = geth_steps[0].memory.replace(Memory::default());
         if length != 0 {
             let minimal_length = memory_offset as usize + length;
             memory.extend_at_least(minimal_length);

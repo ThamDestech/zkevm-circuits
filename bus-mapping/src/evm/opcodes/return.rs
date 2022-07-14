@@ -30,6 +30,8 @@ impl Opcode for Return {
         let offset = geth_step.stack.nth_last(0)?.as_usize();
         let length = geth_step.stack.nth_last(1)?.as_usize();
 
+        let memory = geth_steps[0].memory.replace(Memory::default());
+
         // skip reconstruction for root-level return/revert
         if !current_call.is_root {
             if !current_call.is_create() {
@@ -40,23 +42,23 @@ impl Opcode for Return {
                 let return_offset = current_call.return_data_offset as usize;
                 caller_ctx.memory.extend_at_least(return_offset + length);
                 caller_ctx.memory.0[return_offset..return_offset + length]
-                    .copy_from_slice(&geth_step.memory.borrow().0[offset..offset + length]);
+                    .copy_from_slice(&memory.0[offset..offset + length]);
                 caller_ctx.return_data.resize(length as usize, 0);
                 caller_ctx
                     .return_data
-                    .copy_from_slice(&geth_step.memory.borrow().0[offset..offset + length]);
+                    .copy_from_slice(&memory.0[offset..offset + length]);
                 caller_ctx.last_call = Some(current_call);
             } else {
                 // dealing with contract creation
-                assert!(offset + length <= geth_step.memory.borrow().0.len());
-                let code = geth_step.memory.borrow().0[offset..offset + length].to_vec();
+                assert!(offset + length <= memory.0.len());
+                let code = memory.0[offset..offset + length].to_vec();
                 let contract_addr = geth_steps[1].stack.nth_last(0)?.to_address();
                 state.code_db.insert(Some(contract_addr), code);
             }
             let caller_ctx = state.caller_ctx()?;
             Ok(caller_ctx.memory.borrow().clone())
         } else {
-            Ok(geth_steps[0].memory.borrow().clone())
+            Ok(memory)
         }
     }
 }

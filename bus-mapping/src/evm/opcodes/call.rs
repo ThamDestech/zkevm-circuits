@@ -244,7 +244,7 @@ impl Opcode for Call {
         let ret_offset = geth_step.stack.nth_last(5)?.as_usize();
         let ret_length = geth_step.stack.nth_last(6)?.as_usize();
 
-        let mut memory = geth_steps[0].memory.borrow().clone();
+        let mut memory = geth_steps[0].memory.replace(Memory::default());
         let args_minimal = if args_length != 0 {
             args_offset + args_length
         } else {
