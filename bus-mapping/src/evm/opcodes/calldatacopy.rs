@@ -268,8 +268,6 @@ mod calldatacopy_tests {
         .unwrap()
         .into();
 
-        println!("{}", serde_json::to_string(&block.geth_traces).unwrap());
-
         let mut builder = BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
         builder
             .handle_block(&block.eth_block, &block.geth_traces)
