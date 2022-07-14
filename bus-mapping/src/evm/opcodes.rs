@@ -92,6 +92,7 @@ pub trait Opcode: Debug {
         geth_steps: &[GethExecStep],
     ) -> Result<Vec<ExecStep>, Error>;
 
+    /// Reconstruct memory for next step from current step.
     fn reconstruct_memory(
         &self,
         _state: &mut CircuitInputStateRef,

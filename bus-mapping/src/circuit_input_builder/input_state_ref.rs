@@ -481,6 +481,7 @@ impl<'a> CircuitInputStateRef<'a> {
         self.tx_ctx.call_ctx_mut()
     }
 
+    /// Mutable reference to the caller CallContext
     pub fn caller_ctx_mut(&mut self) -> Result<&mut CallContext, Error> {
         self.tx_ctx
             .calls

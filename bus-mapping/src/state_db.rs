@@ -15,7 +15,9 @@ lazy_static! {
 /// Memory storage for contract code by code hash.
 #[derive(Debug, Clone)]
 pub struct CodeDB {
+    /// contract address to code hash
     pub address_hash: HashMap<Address, Hash>,
+    /// code hash to code
     pub hash_code: HashMap<Hash, Vec<u8>>,
 }
 
