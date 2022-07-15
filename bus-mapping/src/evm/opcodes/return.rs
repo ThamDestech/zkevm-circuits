@@ -16,6 +16,7 @@ impl Opcode for Return {
     ) -> Result<Vec<ExecStep>, Error> {
         let exec_step = state.new_step(&geth_steps[0])?;
         state.handle_return(&geth_steps[0])?;
+        geth_steps[0].memory.replace(Memory::default());
         Ok(vec![exec_step])
     }
 
@@ -30,7 +31,8 @@ impl Opcode for Return {
         let offset = geth_step.stack.nth_last(0)?.as_usize();
         let length = geth_step.stack.nth_last(1)?.as_usize();
 
-        let memory = geth_steps[0].memory.replace(Memory::default());
+        // we need to keep the memory until handle return complete
+        let memory = geth_steps[0].memory.borrow().clone();
 
         // skip reconstruction for root-level return/revert
         if !current_call.is_root {

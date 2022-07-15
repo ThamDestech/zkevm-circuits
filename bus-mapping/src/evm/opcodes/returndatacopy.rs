@@ -31,7 +31,7 @@ impl Opcode for Returndatacopy {
         let call = state.call_ctx()?;
         let return_data = &call.return_data;
 
-        let mut memory = geth_step.memory.borrow().clone();
+        let mut memory = geth_step.memory.replace(Memory::default());
         let length = size.as_usize();
         if length != 0 {
             let mem_starts = dest_offset.as_usize();
