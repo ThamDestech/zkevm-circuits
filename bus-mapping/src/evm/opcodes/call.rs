@@ -85,6 +85,8 @@ impl Opcode for Call {
 
         // Switch to callee's call context
         state.push_call(call.clone(), geth_step);
+        // release the memory at here
+        geth_steps[0].memory.replace(Memory::default());
 
         for (field, value) in [
             (CallContextField::RwCounterEndOfReversion, 0.into()),
@@ -244,7 +246,8 @@ impl Opcode for Call {
         let ret_offset = geth_step.stack.nth_last(5)?.as_usize();
         let ret_length = geth_step.stack.nth_last(6)?.as_usize();
 
-        let mut memory = geth_steps[0].memory.replace(Memory::default());
+        // we need to keep the memory until parse_call complete
+        let mut memory = geth_steps[0].memory.borrow().clone();
         let args_minimal = if args_length != 0 {
             args_offset + args_length
         } else {
