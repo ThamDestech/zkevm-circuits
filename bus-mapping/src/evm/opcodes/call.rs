@@ -4,7 +4,6 @@ use crate::{
     operation::{AccountField, CallContextField, TxAccessListAccountOp, RW},
     Error,
 };
-use eth_types::evm_types::Memory;
 use eth_types::{
     evm_types::{
         gas_utils::{eip150_gas, memory_expansion_gas_cost},
@@ -28,11 +27,34 @@ impl Opcode for Call {
         geth_steps: &[GethExecStep],
     ) -> Result<Vec<ExecStep>, Error> {
         let geth_step = &geth_steps[0];
+
+        let args_offset = geth_step.stack.nth_last(3)?.as_usize();
+        let args_length = geth_step.stack.nth_last(4)?.as_usize();
+        let ret_offset = geth_step.stack.nth_last(5)?.as_usize();
+        let ret_length = geth_step.stack.nth_last(6)?.as_usize();
+
+        // we need to keep the memory until parse_call complete
+        let call_ctx = state.call_ctx_mut()?;
+        let args_minimal = if args_length != 0 {
+            args_offset + args_length
+        } else {
+            0
+        };
+        let ret_minimal = if ret_length != 0 {
+            ret_offset + ret_length
+        } else {
+            0
+        };
+        if args_minimal != 0 || ret_minimal != 0 {
+            let minimal_length = max(args_minimal, ret_minimal);
+            call_ctx.memory.extend_at_least(minimal_length);
+        }
+
         let mut exec_step = state.new_step(geth_step)?;
 
         let tx_id = state.tx_ctx.id();
-        let current_call = state.call()?.clone();
         let call = state.parse_call(geth_step)?;
+        let current_call = state.call()?.clone();
 
         // NOTE: For `RwCounterEndOfReversion` we use the `0` value as a placeholder,
         // and later set the proper value in
@@ -84,9 +106,7 @@ impl Opcode for Call {
         )?;
 
         // Switch to callee's call context
-        state.push_call(call.clone(), geth_step);
-        // release the memory at here
-        geth_steps[0].memory.replace(Memory::default());
+        state.push_call(call.clone());
 
         for (field, value) in [
             (CallContextField::RwCounterEndOfReversion, 0.into()),
@@ -116,10 +136,11 @@ impl Opcode for Call {
             state.account_read(&mut exec_step, call.address, field, value, value)?;
         }
 
+        let current_call_ctx = state.call_ctx()?;
         // Calculate next_memory_word_size and callee_gas_left manually in case
         // there isn't next geth_step (e.g. callee doesn't have code).
         let next_memory_word_size = [
-            geth_step.memory.borrow().word_size() as u64,
+            current_call_ctx.memory.word_size() as u64,
             (call.call_data_offset + call.call_data_length + 31) / 32,
             (call.return_data_offset + call.return_data_length + 31) / 32,
         ]
@@ -141,7 +162,7 @@ impl Opcode for Call {
         } else {
             0
         } + memory_expansion_gas_cost(
-            geth_step.memory.borrow().word_size() as u64,
+            current_call_ctx.memory.word_size() as u64,
             next_memory_word_size,
         );
         let callee_gas_left = eip150_gas(geth_step.gas.0 - gas_cost, geth_step.stack.last()?);
@@ -233,35 +254,5 @@ impl Opcode for Call {
                 Ok(vec![exec_step])
             }
         }
-    }
-
-    fn reconstruct_memory(
-        &self,
-        _state: &mut CircuitInputStateRef,
-        geth_steps: &[GethExecStep],
-    ) -> Result<Memory, Error> {
-        let geth_step = &geth_steps[0];
-        let args_offset = geth_step.stack.nth_last(3)?.as_usize();
-        let args_length = geth_step.stack.nth_last(4)?.as_usize();
-        let ret_offset = geth_step.stack.nth_last(5)?.as_usize();
-        let ret_length = geth_step.stack.nth_last(6)?.as_usize();
-
-        // we need to keep the memory until parse_call complete
-        let mut memory = geth_steps[0].memory.borrow().clone();
-        let args_minimal = if args_length != 0 {
-            args_offset + args_length
-        } else {
-            0
-        };
-        let ret_minimal = if ret_length != 0 {
-            ret_offset + ret_length
-        } else {
-            0
-        };
-        if args_minimal != 0 || ret_minimal != 0 {
-            let minimal_length = max(args_minimal, ret_minimal);
-            memory.extend_at_least(minimal_length);
-        }
-        Ok(memory)
     }
 }

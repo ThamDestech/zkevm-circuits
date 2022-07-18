@@ -15,7 +15,6 @@ use eth_types::{
 use keccak256::EMPTY_HASH;
 use log::warn;
 use std::collections::HashMap;
-use std::ops::Deref;
 
 mod call;
 mod calldatacopy;
@@ -59,7 +58,6 @@ use codecopy::Codecopy;
 use codesize::Codesize;
 use create::DummyCreate;
 use dup::Dup;
-use eth_types::evm_types::Memory;
 use extcodecopy::Extcodecopy;
 use extcodehash::Extcodehash;
 use gasprice::GasPrice;
@@ -91,15 +89,6 @@ pub trait Opcode: Debug {
         state: &mut CircuitInputStateRef,
         geth_steps: &[GethExecStep],
     ) -> Result<Vec<ExecStep>, Error>;
-
-    /// Reconstruct memory for next step from current step.
-    fn reconstruct_memory(
-        &self,
-        _state: &mut CircuitInputStateRef,
-        geth_steps: &[GethExecStep],
-    ) -> Result<Memory, Error> {
-        Ok(geth_steps[0].memory.replace(Memory::default()))
-    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -260,29 +249,39 @@ pub fn gen_associated_ops(
 ) -> Result<Vec<ExecStep>, Error> {
     let opcode = down_cast_to_opcode(opcode_id);
 
-    let memory = opcode.reconstruct_memory(state, geth_steps)?;
+    let memory_enabled = !geth_steps.iter().all(|s| s.memory.is_empty());
+    if memory_enabled {
+        assert_eq!(
+            &state.call_ctx()?.memory,
+            &geth_steps[0].memory,
+            "last step of {:?} goes wrong",
+            opcode_id
+        );
+    }
+
+    let steps = opcode.gen_associated_ops(state, geth_steps)?;
 
     if geth_steps.len() > 1 {
-        if !geth_steps[1].memory.borrow().is_empty() {
-            // memory trace is enabled or it is a call
-            assert_eq!(geth_steps[1].memory.borrow().deref(), &memory, "{:?} goes wrong", opcode_id);
-        } else {
-            if opcode_id.is_call() {
-                if geth_steps[0].depth == geth_steps[1].depth {
-                    geth_steps[1].memory.replace(memory.clone());
-                } else {
-                    geth_steps[1].memory.replace(Memory::default());
-                }
-            } else {
-                // debug: enable trace = true
-                // TODO: comment this when mem trace = false(auto) .. heihei...
-                //assert_eq!(geth_steps[1].memory.borrow().deref(), &memory);
-                geth_steps[1].memory.replace(memory.clone());
-            }
-        }
-        state.call_ctx_mut()?.memory = memory;
+        // if !geth_steps[1].memory.borrow().is_empty() {
+        //     // memory trace is enabled or it is a call
+        //     assert_eq!(geth_steps[1].memory.borrow().deref(), &memory, "{:?}
+        // goes wrong", opcode_id); } else {
+        //     if opcode_id.is_call() {
+        //         if geth_steps[0].depth == geth_steps[1].depth {
+        //             geth_steps[1].memory.replace(memory.clone());
+        //         } else {
+        //             geth_steps[1].memory.replace(Memory::default());
+        //         }
+        //     } else {
+        //         // debug: enable trace = true
+        //         // TODO: comment this when mem trace = false(auto) ..
+        // heihei...         //assert_eq!(geth_steps[1].memory.borrow().
+        // deref(), &memory);         geth_steps[1].memory.
+        // replace(memory.clone());     }
+        // }
     }
-    opcode.gen_associated_ops(state, geth_steps)
+
+    Ok(steps)
 }
 
 pub fn gen_begin_tx_ops(state: &mut CircuitInputStateRef) -> Result<ExecStep, Error> {
@@ -569,7 +568,7 @@ fn dummy_gen_call_ops(
         },
     )?;
 
-    state.push_call(call.clone(), geth_step);
+    state.push_call(call.clone());
 
     match (
         state.is_precompiled(&call.address),

@@ -1,7 +1,6 @@
 use crate::circuit_input_builder::{CircuitInputStateRef, ExecStep};
 use crate::evm::Opcode;
 use crate::Error;
-use eth_types::evm_types::Memory;
 use eth_types::GethExecStep;
 
 #[derive(Clone, Copy, Debug)]
@@ -15,23 +14,18 @@ impl Opcode for Returndatacopy {
     ) -> Result<Vec<ExecStep>, Error> {
         // TODO: complete `ExecStep` and circuit implementation
         let exec_step = state.new_step(&geth_steps[0])?;
-        Ok(vec![exec_step])
-    }
 
-    fn reconstruct_memory(
-        &self,
-        state: &mut CircuitInputStateRef,
-        geth_steps: &[GethExecStep],
-    ) -> Result<Memory, Error> {
+        // reconstruction
         let geth_step = &geth_steps[0];
         let dest_offset = geth_step.stack.nth_last(0)?;
         let offset = geth_step.stack.nth_last(1)?;
         let size = geth_step.stack.nth_last(2)?;
 
-        let call = state.call_ctx()?;
-        let return_data = &call.return_data;
+        // can we reduce this clone?
+        let return_data = state.call_ctx()?.return_data.clone();
 
-        let mut memory = geth_step.memory.replace(Memory::default());
+        let call_ctx = state.call_ctx_mut()?;
+        let memory = &mut call_ctx.memory;
         let length = size.as_usize();
         if length != 0 {
             let mem_starts = dest_offset.as_usize();
@@ -48,8 +42,7 @@ impl Opcode for Returndatacopy {
                 // there is no more steps.
             }
         }
-
-        Ok(memory)
+        Ok(vec![exec_step])
     }
 }
 

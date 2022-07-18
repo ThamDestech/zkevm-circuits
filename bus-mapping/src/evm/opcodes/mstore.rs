@@ -2,7 +2,7 @@ use super::Opcode;
 use crate::circuit_input_builder::{CircuitInputStateRef, ExecStep};
 use crate::Error;
 use core::convert::TryInto;
-use eth_types::evm_types::{Memory, MemoryAddress};
+use eth_types::evm_types::MemoryAddress;
 use eth_types::{GethExecStep, ToBigEndian, ToLittleEndian};
 
 /// Placeholder structure used to implement [`Opcode`] trait over it
@@ -50,20 +50,13 @@ impl<const IS_MSTORE8: bool> Opcode for Mstore<IS_MSTORE8> {
             }
         }
 
-        Ok(vec![exec_step])
-    }
-
-    fn reconstruct_memory(
-        &self,
-        _state: &mut CircuitInputStateRef,
-        geth_steps: &[GethExecStep],
-    ) -> Result<Memory, Error> {
-        let geth_step = &geth_steps[0];
+        // reconstruction
         let offset = geth_step.stack.nth_last(0)?;
         let value = geth_step.stack.nth_last(1)?;
         let offset_addr: MemoryAddress = offset.try_into()?;
 
-        let mut memory = geth_step.memory.borrow().clone();
+        let call_ctx = state.call_ctx_mut()?;
+        let memory = &mut call_ctx.memory;
         let minimal_length = offset_addr.0 + if IS_MSTORE8 { 1 } else { 32 };
         memory.extend_at_least(minimal_length);
 
@@ -79,7 +72,8 @@ impl<const IS_MSTORE8: bool> Opcode for Mstore<IS_MSTORE8> {
                 memory[mem_starts..mem_starts + 32].copy_from_slice(&bytes);
             }
         }
-        Ok(memory)
+
+        Ok(vec![exec_step])
     }
 }
 

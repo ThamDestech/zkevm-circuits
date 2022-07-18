@@ -2,7 +2,6 @@ use crate::circuit_input_builder::{CircuitInputStateRef, ExecStep};
 use crate::evm::Opcode;
 use crate::operation::{AccountField, AccountOp, TxAccessListAccountOp, RW};
 use crate::Error;
-use eth_types::evm_types::Memory;
 use eth_types::GethExecStep;
 use keccak256::EMPTY_HASH;
 
@@ -18,21 +17,6 @@ impl Opcode for DummyCreate {
         // TODO: replace dummy create here
         dummy_gen_create_ops(state, geth_steps)
     }
-
-    fn reconstruct_memory(
-        &self,
-        _state: &mut CircuitInputStateRef,
-        geth_steps: &[GethExecStep],
-    ) -> Result<Memory, Error> {
-        let geth_step = &geth_steps[0];
-        let offset = geth_step.stack.nth_last(1)?.as_usize();
-        let length = geth_step.stack.nth_last(2)?.as_usize();
-
-        let mut memory = geth_step.memory.borrow().clone();
-        memory.extend_at_least(offset + length);
-
-        Ok(memory)
-    }
 }
 
 fn dummy_gen_create_ops(
@@ -40,6 +24,15 @@ fn dummy_gen_create_ops(
     geth_steps: &[GethExecStep],
 ) -> Result<Vec<ExecStep>, Error> {
     let geth_step = &geth_steps[0];
+
+    let offset = geth_step.stack.nth_last(1)?.as_usize();
+    let length = geth_step.stack.nth_last(2)?.as_usize();
+
+    state
+        .call_ctx_mut()?
+        .memory
+        .extend_at_least(offset + length);
+
     let mut exec_step = state.new_step(geth_step)?;
 
     let tx_id = state.tx_ctx.id();
@@ -71,7 +64,7 @@ fn dummy_gen_create_ops(
         },
     )?;
 
-    state.push_call(call.clone(), geth_step);
+    state.push_call(call.clone());
 
     // Increase callee's nonce
     let nonce_prev = state.sdb.get_nonce(&call.address);

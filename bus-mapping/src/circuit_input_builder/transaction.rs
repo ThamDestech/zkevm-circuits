@@ -159,7 +159,6 @@ impl TransactionContext {
             call_data,
             memory: Memory::default(),
             return_data: vec![],
-            last_call: None,
         });
     }
 

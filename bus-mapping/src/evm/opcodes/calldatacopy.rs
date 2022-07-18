@@ -7,7 +7,6 @@ use crate::{
     },
     constants::MAX_COPY_BYTES,
 };
-use eth_types::evm_types::Memory;
 use eth_types::GethExecStep;
 
 #[derive(Clone, Copy, Debug)]
@@ -20,21 +19,17 @@ impl Opcode for Calldatacopy {
         geth_steps: &[GethExecStep],
     ) -> Result<Vec<ExecStep>, Error> {
         let geth_step = &geth_steps[0];
+
         let mut exec_steps = vec![gen_calldatacopy_step(state, geth_step)?];
         let memory_copy_steps = gen_memory_copy_steps(state, geth_steps)?;
         exec_steps.extend(memory_copy_steps);
-        Ok(exec_steps)
-    }
 
-    fn reconstruct_memory(
-        &self,
-        state: &mut CircuitInputStateRef,
-        geth_steps: &[GethExecStep],
-    ) -> Result<Memory, Error> {
-        let memory_offset = geth_steps[0].stack.nth_last(0)?.as_u64();
-        let data_offset = geth_steps[0].stack.nth_last(1)?.as_u64();
-        let length = geth_steps[0].stack.nth_last(2)?.as_usize();
-        let mut memory = geth_steps[0].memory.replace(Memory::default());
+        // reconstruction
+        let memory_offset = geth_step.stack.nth_last(0)?.as_u64();
+        let data_offset = geth_step.stack.nth_last(1)?.as_u64();
+        let length = geth_step.stack.nth_last(2)?.as_usize();
+        let call_ctx = state.call_ctx_mut()?;
+        let memory = &mut call_ctx.memory;
         if length != 0 {
             let minimal_length = memory_offset as usize + length;
             memory.extend_at_least(minimal_length);
@@ -43,7 +38,7 @@ impl Opcode for Calldatacopy {
             let mem_ends = mem_starts + length as usize;
             let data_starts = data_offset as usize;
             let data_ends = data_starts + length as usize;
-            let call_data = &state.call_ctx()?.call_data;
+            let call_data = &call_ctx.call_data;
             if data_ends <= call_data.len() {
                 memory.0[mem_starts..mem_ends].copy_from_slice(&call_data[data_starts..data_ends]);
             } else if let Some(actual_length) = call_data.len().checked_sub(data_starts) {
@@ -53,8 +48,8 @@ impl Opcode for Calldatacopy {
                 // out of bound bytes
             }
         }
-        state.call_ctx_mut()?.memory = memory.clone();
-        Ok(memory)
+
+        Ok(exec_steps)
     }
 }
 

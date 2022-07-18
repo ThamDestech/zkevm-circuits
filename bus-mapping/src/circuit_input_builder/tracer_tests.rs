@@ -54,11 +54,13 @@ impl CircuitInputBuilderTx {
             tx.last_step().log_id
         };
 
+        let call_ctx = tx_ctx.call_ctx().unwrap();
+        let exec_step = ExecStep::new(geth_step, call_ctx, RWCounter::new(), 0, prev_log_id);
         Self {
             builder,
             tx,
             tx_ctx,
-            step: ExecStep::new(geth_step, 0, RWCounter::new(), 0, prev_log_id),
+            step: exec_step,
         }
     }
 
@@ -376,7 +378,7 @@ fn tracer_err_address_collision() {
     let mut builder = CircuitInputBuilderTx::new(&block, step);
     // Set up call context at CREATE2
     builder.tx_ctx.call_is_success.push(false);
-    builder.state_ref().push_call(mock_internal_create(), step);
+    builder.state_ref().push_call(mock_internal_create());
     // Set up account and contract that exist during the second CREATE2
     builder.builder.sdb.set_account(
         &ADDR_B,
@@ -501,7 +503,7 @@ fn tracer_err_code_store_out_of_gas() {
     let mut builder = CircuitInputBuilderTx::new(&block, step);
     // Set up call context at CREATE
     builder.tx_ctx.call_is_success.push(false);
-    builder.state_ref().push_call(mock_internal_create(), step);
+    builder.state_ref().push_call(mock_internal_create());
     assert_eq!(
         builder.state_ref().get_step_err(step, next_step).unwrap(),
         Some(ExecError::CodeStoreOutOfGas)
@@ -515,8 +517,8 @@ fn check_err_invalid_code(step: &GethExecStep, next_step: Option<&GethExecStep>)
         && step.error.is_none()
         && result(next_step).is_zero()
         && length > Word::zero()
-        && !step.memory.borrow().is_empty()
-        && step.memory.borrow().0.get(offset.low_u64() as usize) == Some(&0xef)
+        && !step.memory.is_empty()
+        && step.memory.0.get(offset.low_u64() as usize) == Some(&0xef)
 }
 
 #[test]
@@ -608,7 +610,7 @@ fn tracer_err_invalid_code() {
     let mut builder = CircuitInputBuilderTx::new(&block, step);
     // Set up call context at RETURN
     builder.tx_ctx.call_is_success.push(false);
-    builder.state_ref().push_call(mock_internal_create(), step);
+    builder.state_ref().push_call(mock_internal_create());
     assert_eq!(
         builder.state_ref().get_step_err(step, next_step).unwrap(),
         Some(ExecError::InvalidCreationCode)
@@ -713,7 +715,7 @@ fn tracer_err_max_code_size_exceeded() {
     let mut builder = CircuitInputBuilderTx::new(&block, step);
     // Set up call context at RETURN
     builder.tx_ctx.call_is_success.push(false);
-    builder.state_ref().push_call(mock_internal_create(), step);
+    builder.state_ref().push_call(mock_internal_create());
     assert_eq!(
         builder.state_ref().get_step_err(step, next_step).unwrap(),
         Some(ExecError::MaxCodeSizeExceeded)
@@ -808,7 +810,7 @@ fn tracer_create_stop() {
     let mut builder = CircuitInputBuilderTx::new(&block, step);
     // Set up call context at STOP
     builder.tx_ctx.call_is_success.push(false);
-    builder.state_ref().push_call(mock_internal_create(), step);
+    builder.state_ref().push_call(mock_internal_create());
     assert_eq!(
         builder.state_ref().get_step_err(step, next_step).unwrap(),
         None
@@ -1316,29 +1318,26 @@ fn tracer_err_write_protection() {
 
     let mut builder = CircuitInputBuilderTx::new(&block, step);
     builder.tx_ctx.call_is_success.push(false);
-    builder.state_ref().push_call(
-        Call {
-            call_id: 0,
-            caller_id: 0,
-            kind: CallKind::StaticCall,
-            is_static: true,
-            is_root: false,
-            is_persistent: false,
-            is_success: false,
-            rw_counter_end_of_reversion: 0,
-            caller_address: *ADDR_A,
-            address: *ADDR_B,
-            code_source: CodeSource::Address(*ADDR_B),
-            code_hash: Hash::zero(),
-            depth: 2,
-            value: Word::zero(),
-            call_data_offset: 0,
-            call_data_length: 0,
-            return_data_offset: 0,
-            return_data_length: 0,
-        },
-        step,
-    );
+    builder.state_ref().push_call(Call {
+        call_id: 0,
+        caller_id: 0,
+        kind: CallKind::StaticCall,
+        is_static: true,
+        is_root: false,
+        is_persistent: false,
+        is_success: false,
+        rw_counter_end_of_reversion: 0,
+        caller_address: *ADDR_A,
+        address: *ADDR_B,
+        code_source: CodeSource::Address(*ADDR_B),
+        code_hash: Hash::zero(),
+        depth: 2,
+        value: Word::zero(),
+        call_data_offset: 0,
+        call_data_length: 0,
+        return_data_offset: 0,
+        return_data_length: 0,
+    });
 
     assert_eq!(
         builder.state_ref().get_step_err(step, next_step).unwrap(),
@@ -1535,9 +1534,7 @@ fn create2_address() {
     let mut builder = CircuitInputBuilderTx::new(&block, step_create2);
     // Set up call context at CREATE2
     builder.tx_ctx.call_is_success.push(false);
-    builder
-        .state_ref()
-        .push_call(mock_internal_create(), step_create2);
+    builder.state_ref().push_call(mock_internal_create());
     let addr = builder.state_ref().create2_address(step_create2).unwrap();
 
     assert_eq!(addr.to_word(), addr_expect);
@@ -1644,9 +1641,7 @@ fn create_address() {
     let mut builder = CircuitInputBuilderTx::new(&block, step_create);
     // Set up call context at CREATE
     builder.tx_ctx.call_is_success.push(false);
-    builder
-        .state_ref()
-        .push_call(mock_internal_create(), step_create);
+    builder.state_ref().push_call(mock_internal_create());
     builder.builder.sdb.set_account(
         &ADDR_B,
         Account {

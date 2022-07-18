@@ -5,7 +5,6 @@ use crate::{
     constants::MAX_COPY_BYTES,
     Error,
 };
-use eth_types::evm_types::Memory;
 use eth_types::{GethExecStep, ToWord};
 
 use super::Opcode;
@@ -23,22 +22,18 @@ impl Opcode for Codecopy {
         let mut exec_steps = vec![gen_codecopy_step(state, geth_step)?];
         let memory_copy_steps = gen_memory_copy_steps(state, geth_steps)?;
         exec_steps.extend(memory_copy_steps);
-        Ok(exec_steps)
-    }
 
-    fn reconstruct_memory(
-        &self,
-        state: &mut CircuitInputStateRef,
-        geth_steps: &[GethExecStep],
-    ) -> Result<Memory, Error> {
-        let dest_offset = geth_steps[0].stack.nth_last(0)?.as_u64();
-        let code_offset = geth_steps[0].stack.nth_last(1)?.as_u64();
-        let length = geth_steps[0].stack.nth_last(2)?.as_u64();
+        // reconstruction
+
+        let dest_offset = geth_step.stack.nth_last(0)?.as_u64();
+        let code_offset = geth_step.stack.nth_last(1)?.as_u64();
+        let length = geth_step.stack.nth_last(2)?.as_u64();
 
         let code_hash = state.call()?.code_hash;
         let code = state.code(code_hash)?;
 
-        let mut memory = geth_steps[0].memory.replace(Memory::default());
+        let call_ctx = state.call_ctx_mut()?;
+        let memory = &mut call_ctx.memory;
         if length != 0 {
             let minimal_length = (dest_offset + length) as usize;
             memory.extend_at_least(minimal_length);
@@ -56,7 +51,7 @@ impl Opcode for Codecopy {
                 // out of bound bytes
             }
         }
-        Ok(memory)
+        Ok(exec_steps)
     }
 }
 

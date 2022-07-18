@@ -51,7 +51,7 @@ impl<'a> CircuitInputStateRef<'a> {
 
         Ok(ExecStep::new(
             geth_step,
-            call_ctx.index,
+            call_ctx,
             self.block_ctx.rwc,
             call_ctx.reversible_write_counter,
             pre_log_id,
@@ -493,11 +493,12 @@ impl<'a> CircuitInputStateRef<'a> {
 
     /// Push a new [`Call`] into the [`Transaction`], and add its index and
     /// [`CallContext`] in the `call_stack` of the [`TransactionContext`]
-    pub fn push_call(&mut self, call: Call, step: &GethExecStep) {
+    pub fn push_call(&mut self, call: Call) {
+        let current_call = self.call_ctx().expect("current call not found");
         let call_data = match call.kind {
             CallKind::Call | CallKind::CallCode | CallKind::DelegateCall | CallKind::StaticCall => {
-                step.memory
-                    .borrow()
+                current_call
+                    .memory
                     .read_chunk(call.call_data_offset.into(), call.call_data_length.into())
             }
             CallKind::Create | CallKind::Create2 => Vec::new(),
@@ -529,7 +530,8 @@ impl<'a> CircuitInputStateRef<'a> {
     /// deterministically from the arguments in the stack.
     pub(crate) fn create2_address(&self, step: &GethExecStep) -> Result<Address, Error> {
         let salt = step.stack.nth_last(3)?;
-        let init_code = get_create_init_code(step)?;
+        let call_ctx = self.call_ctx()?;
+        let init_code = get_create_init_code(call_ctx, step)?.to_vec();
         Ok(get_create2_address(
             self.call()?.address,
             salt.to_be_bytes().to_vec(),
@@ -552,6 +554,7 @@ impl<'a> CircuitInputStateRef<'a> {
             .unwrap();
         let kind = CallKind::try_from(step.op)?;
         let caller = self.call()?;
+        let caller_ctx = self.call_ctx()?;
 
         let (caller_address, address, value) = match kind {
             CallKind::Call => (
@@ -576,7 +579,7 @@ impl<'a> CircuitInputStateRef<'a> {
 
         let (code_source, code_hash) = match kind {
             CallKind::Create | CallKind::Create2 => {
-                let init_code = get_create_init_code(step)?;
+                let init_code = get_create_init_code(caller_ctx, step)?.to_vec();
                 let code_hash = self.code_db.insert(None, init_code);
                 (CodeSource::Memory, code_hash)
             }
@@ -769,14 +772,14 @@ impl<'a> CircuitInputStateRef<'a> {
     /// previous call context.
     pub fn handle_return(&mut self, step: &GethExecStep) -> Result<(), Error> {
         let call = self.call()?.clone();
+        let call_ctx = self.call_ctx()?;
 
         // Store deployed code if it's a successful create
         if call.is_create() && call.is_success {
             let offset = step.stack.nth_last(0)?;
             let length = step.stack.nth_last(1)?;
-            let code = step
+            let code = call_ctx
                 .memory
-                .borrow()
                 .read_chunk(offset.low_u64().into(), length.low_u64().into());
             let code_hash = self.code_db.insert(None, code);
             let (found, callee_account) = self.sdb.get_account_mut(&call.address);
@@ -825,6 +828,7 @@ impl<'a> CircuitInputStateRef<'a> {
             .unwrap_or_else(Word::zero);
 
         let call = self.call()?;
+        let call_ctx = self.call_ctx()?;
 
         // Return from a call with a failure
         if step.depth != next_depth && next_result.is_zero() {
@@ -863,8 +867,8 @@ impl<'a> CircuitInputStateRef<'a> {
                     if length > Word::from(0x6000u64) {
                         return Ok(Some(ExecError::MaxCodeSizeExceeded));
                     } else if length > Word::zero()
-                        && !step.memory.borrow().is_empty()
-                        && step.memory.borrow().0.get(offset.low_u64() as usize) == Some(&0xef)
+                        && !call_ctx.memory.is_empty()
+                        && call_ctx.memory.0.get(offset.low_u64() as usize) == Some(&0xef)
                     {
                         return Ok(Some(ExecError::InvalidCreationCode));
                     } else if Word::from(200u64) * length > Word::from(step.gas.0) {

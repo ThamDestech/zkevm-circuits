@@ -4,7 +4,7 @@ use crate::{
     operation::CallContextField,
     Error,
 };
-use eth_types::{evm_types::Memory, GethExecStep, ToWord};
+use eth_types::{GethExecStep, ToWord};
 
 /// Placeholder structure used to implement [`Opcode`] trait over it
 /// corresponding to the [`OpcodeId::STOP`](crate::evm::OpcodeId::STOP)
@@ -54,6 +54,7 @@ impl Opcode for Stop {
             );
 
             let geth_step_next = &geth_steps[1];
+            let caller_ctx = state.caller_ctx()?;
             let caller_gas_left = geth_step_next.gas.0 - geth_step.gas.0;
             for (field, value) in [
                 (CallContextField::IsRoot, (caller.is_root as u64).into()),
@@ -70,7 +71,7 @@ impl Opcode for Stop {
                 (CallContextField::GasLeft, caller_gas_left.into()),
                 (
                     CallContextField::MemorySize,
-                    geth_step_next.memory.borrow().word_size().into(),
+                    caller_ctx.memory.word_size().into(),
                 ),
                 (
                     CallContextField::ReversibleWriteCounter,
@@ -92,21 +93,5 @@ impl Opcode for Stop {
         state.handle_return(geth_step)?;
 
         Ok(vec![exec_step])
-    }
-
-    fn reconstruct_memory(
-        &self,
-        state: &mut CircuitInputStateRef,
-        geth_steps: &[GethExecStep],
-    ) -> Result<Memory, Error> {
-        let current_call = state.call()?.clone();
-        if !current_call.is_root {
-            let caller_ctx = state.caller_ctx_mut()?;
-            let length = current_call.return_data_offset + current_call.return_data_length;
-            caller_ctx.memory.extend_at_least(length as usize);
-            Ok(caller_ctx.memory.clone())
-        } else {
-            Ok(geth_steps[0].memory.replace(Memory::default()))
-        }
     }
 }

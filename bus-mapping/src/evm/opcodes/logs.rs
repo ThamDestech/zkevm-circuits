@@ -7,7 +7,7 @@ use crate::{
     },
     constants::MAX_COPY_BYTES,
 };
-use eth_types::evm_types::{Memory, MemoryAddress, OpcodeId};
+use eth_types::evm_types::{MemoryAddress, OpcodeId};
 use eth_types::Word;
 use eth_types::{GethExecStep, ToBigEndian, ToWord};
 
@@ -25,22 +25,17 @@ impl Opcode for Log {
         let mut exec_steps = vec![gen_log_step(state, geth_step)?];
         let log_copy_steps = gen_log_copy_steps(state, geth_steps)?;
         exec_steps.extend(log_copy_steps);
-        Ok(exec_steps)
-    }
 
-    fn reconstruct_memory(
-        &self,
-        _state: &mut CircuitInputStateRef,
-        geth_steps: &[GethExecStep],
-    ) -> Result<Memory, Error> {
-        let geth_step = &geth_steps[0];
+        // reconstruction
         let offset = geth_step.stack.nth_last(0)?.as_usize();
         let length = geth_step.stack.nth_last(1)?.as_usize();
 
-        let mut memory = geth_step.memory.borrow().clone();
-        memory.extend_at_least(offset + length);
+        state
+            .call_ctx_mut()?
+            .memory
+            .extend_at_least(offset + length);
 
-        Ok(memory)
+        Ok(exec_steps)
     }
 }
 
@@ -137,7 +132,6 @@ fn gen_log_step(
 
 fn gen_log_copy_step(
     state: &mut CircuitInputStateRef,
-    geth_steps: &[GethExecStep],
     exec_step: &mut ExecStep,
     src_addr: u64,
     src_addr_end: u64,
@@ -146,9 +140,9 @@ fn gen_log_copy_step(
 ) -> Result<(), Error> {
     // Get memory data
     let memory_address: MemoryAddress = Word::from(src_addr).try_into()?;
-    let mem_read_value = geth_steps[0]
+    let mem_read_value = state
+        .call_ctx()?
         .memory
-        .borrow()
         .read_word(memory_address)
         .to_be_bytes();
 
@@ -209,7 +203,6 @@ fn gen_log_copy_steps(
         exec_step.exec_state = ExecState::CopyToLog;
         gen_log_copy_step(
             state,
-            geth_steps,
             &mut exec_step,
             src_addr + copied as u64,
             buffer_addr_end,
