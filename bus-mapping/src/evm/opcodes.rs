@@ -268,26 +268,6 @@ pub fn gen_associated_ops(
 
     let steps = opcode.gen_associated_ops(state, geth_steps)?;
 
-    if geth_steps.len() > 1 {
-        // if !geth_steps[1].memory.borrow().is_empty() {
-        //     // memory trace is enabled or it is a call
-        //     assert_eq!(geth_steps[1].memory.borrow().deref(), &memory, "{:?}
-        // goes wrong", opcode_id); } else {
-        //     if opcode_id.is_call() {
-        //         if geth_steps[0].depth == geth_steps[1].depth {
-        //             geth_steps[1].memory.replace(memory.clone());
-        //         } else {
-        //             geth_steps[1].memory.replace(Memory::default());
-        //         }
-        //     } else {
-        //         // debug: enable trace = true
-        //         // TODO: comment this when mem trace = false(auto) ..
-        // heihei...         //assert_eq!(geth_steps[1].memory.borrow().
-        // deref(), &memory);         geth_steps[1].memory.
-        // replace(memory.clone());     }
-        // }
-    }
-
     Ok(steps)
 }
 
