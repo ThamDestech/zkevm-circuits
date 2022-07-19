@@ -190,7 +190,7 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
                         &caller_ctx.memory.0[args_offset..args_offset + args_length],
                     );
                     caller_ctx.memory.0[ret_offset..ret_offset + ret_length]
-                        .copy_from_slice(&result.0[..]);
+                        .copy_from_slice(&result.0[..ret_length]);
                 }
                 state.tx_ctx.pop_call_ctx();
 
