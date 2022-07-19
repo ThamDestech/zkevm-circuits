@@ -140,11 +140,10 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
             state.account_read(&mut exec_step, call.address, field, value, value)?;
         }
 
-        let current_call_ctx = state.call_ctx()?;
         // Calculate next_memory_word_size and callee_gas_left manually in case
         // there isn't next geth_step (e.g. callee doesn't have code).
         let next_memory_word_size = [
-            current_call_ctx.memory.word_size() as u64,
+            state.call_ctx()?.memory.word_size() as u64,
             (call.call_data_offset + call.call_data_length + 31) / 32,
             (call.return_data_offset + call.return_data_length + 31) / 32,
         ]
@@ -166,7 +165,7 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
         } else {
             0
         } + memory_expansion_gas_cost(
-            current_call_ctx.memory.word_size() as u64,
+            state.caller_ctx()?.memory.word_size() as u64,
             next_memory_word_size,
         );
         let callee_gas_left = eip150_gas(geth_step.gas.0 - gas_cost, geth_step.stack.last()?);
