@@ -17,9 +17,10 @@ use crate::{
 };
 use eth_types::{
     evm_types::{Gas, MemoryAddress, OpcodeId, StackAddress},
-    Address, GethExecStep, Hash, ToAddress, ToBigEndian, Word, H256,
+    Address, GethExecStep, ToAddress, ToBigEndian, Word, H256,
 };
 use ethers_core::utils::{get_contract_address, get_create2_address};
+use keccak256::EMPTY_HASH;
 
 /// Reference to the internal state of the CircuitInputBuilder in a particular
 /// [`ExecStep`].
@@ -411,7 +412,7 @@ impl<'a> CircuitInputStateRef<'a> {
         )?;
 
         // FIXME: is this correct?
-        if !self.is_precompiled(&receiver) {
+        if true || !self.is_precompiled(&receiver) {
             let (found, receiver_account) = self.sdb.get_account(&receiver);
             if !found {
                 return Err(Error::AccountNotFound(receiver));
@@ -585,30 +586,32 @@ impl<'a> CircuitInputStateRef<'a> {
             ),
         };
 
-        let (code_source, code_hash) = match kind {
-            CallKind::Create | CallKind::Create2 => {
-                let init_code = get_create_init_code(caller_ctx, step)?.to_vec();
-                let code_hash = self.code_db.insert(None, init_code);
-                (CodeSource::Memory, code_hash)
-            }
-            _ => {
-                let code_address = match kind {
-                    CallKind::CallCode | CallKind::DelegateCall => {
-                        step.stack.nth_last(1)?.to_address()
-                    }
-                    _ => address,
-                };
-                if self.is_precompiled(&code_address) {
-                    (CodeSource::Address(code_address), Hash::zero()) // FIXME: is this correct?
-                } else {
-                    let (found, account) = self.sdb.get_account(&code_address);
-                    if !found {
-                        return Err(Error::AccountNotFound(code_address));
-                    }
-                    (CodeSource::Address(code_address), account.code_hash)
+        let (code_source, code_hash) =
+            match kind {
+                CallKind::Create | CallKind::Create2 => {
+                    let init_code = get_create_init_code(caller_ctx, step)?.to_vec();
+                    let code_hash = self.code_db.insert(None, init_code);
+                    (CodeSource::Memory, code_hash)
                 }
-            }
-        };
+                _ => {
+                    let code_address = match kind {
+                        CallKind::CallCode | CallKind::DelegateCall => {
+                            step.stack.nth_last(1)?.to_address()
+                        }
+                        _ => address,
+                    };
+                    if self.is_precompiled(&code_address) {
+                        let empty_hash: H256 = H256::from(*EMPTY_HASH);
+                        (CodeSource::Address(code_address), empty_hash) // FIXME: is this correct?
+                    } else {
+                        let (found, account) = self.sdb.get_account(&code_address);
+                        if !found {
+                            return Err(Error::AccountNotFound(code_address));
+                        }
+                        (CodeSource::Address(code_address), account.code_hash)
+                    }
+                }
+            };
 
         let (call_data_offset, call_data_length, return_data_offset, return_data_length) =
             match kind {

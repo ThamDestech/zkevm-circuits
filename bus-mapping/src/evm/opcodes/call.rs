@@ -1,10 +1,11 @@
 use super::Opcode;
-use crate::evm::precompiled::execute_precompiled;
+
 use crate::{
     circuit_input_builder::{CircuitInputStateRef, ExecStep},
     operation::{AccountField, CallContextField, TxAccessListAccountOp, RW},
     Error,
 };
+use eth_types::evm_types::{Gas, OpcodeId};
 use eth_types::{
     evm_types::{
         gas_utils::{eip150_gas, memory_expansion_gas_cost},
@@ -107,8 +108,6 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
             },
         )?;
 
-        let curr_memory_word_size = state.call_ctx()?.memory.word_size() as u64;
-
         // Switch to callee's call context
         state.push_call(call.clone());
 
@@ -122,16 +121,29 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
             state.call_context_read(&mut exec_step, call.call_id, field, value);
         }
 
+        let (_, callee_account) = state.sdb.get_account(&call.address);
+        let callee_account = callee_account.clone();
         state.transfer(
             &mut exec_step,
             call.caller_address,
             call.address,
             call.value,
         )?;
-        let (_, callee_account) = state.sdb.get_account(&call.address);
         let is_account_empty = callee_account.is_empty();
+        println!(
+            "ACCEMPTY is account empty {} {:?}",
+            is_account_empty, callee_account
+        );
+        /*
+
+        self.nonce.is_zero()
+            && self.balance.is_zero()
+            && self.storage.is_empty()
+            && self.code_hash.eq(&CODE_HASH_ZERO)
+         */
         let callee_nonce = callee_account.nonce;
-        let callee_code_hash = callee_account.code_hash;
+        let callee_code_hash = call.code_hash;
+        debug_assert!(!callee_code_hash.is_zero());
         for (field, value) in [
             (AccountField::Nonce, callee_nonce),
             (AccountField::CodeHash, callee_code_hash.to_word()),
@@ -141,6 +153,8 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
 
         // Calculate next_memory_word_size and callee_gas_left manually in case
         // there isn't next geth_step (e.g. callee doesn't have code).
+        debug_assert_eq!(exec_step.memory_size % 32, 0);
+        let curr_memory_word_size = (exec_step.memory_size as u64) / 32;
         let next_memory_word_size = [
             curr_memory_word_size,
             (call.call_data_offset + call.call_data_length + 31) / 32,
@@ -171,7 +185,10 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
         let gas_specified = geth_step.stack.last()?;
         let callee_gas_left = eip150_gas(geth_step.gas.0 - gas_cost, gas_specified);
 
-        if geth_steps[1].depth == geth_steps[0].depth + 1 && geth_steps[1].gas.0 != callee_gas_left + if has_value { 2300 } else { 0 } {
+        if geth_steps[0].op == OpcodeId::CALL
+            && geth_steps[1].depth == geth_steps[0].depth + 1
+            && geth_steps[1].gas.0 != callee_gas_left + if has_value { 2300 } else { 0 }
+        {
             // panic with full info
 
             let info1 = format!("callee_gas_left {} gas_specified {} gas_cost {} is_warm {} has_value {} is_account_empty {} current_memory_word_size {} next_memory_word_size {}, memory_expansion_gas_cost {}",
@@ -208,8 +225,16 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
             // 1. Call to precompiled.
             (true, _) => {
                 warn!("Call to precompiled is left unimplemented");
+
+                for (field, value) in [
+                    (CallContextField::LastCalleeId, 0.into()),
+                    (CallContextField::LastCalleeReturnDataOffset, 0.into()),
+                    (CallContextField::LastCalleeReturnDataLength, 0.into()),
+                ] {
+                    state.call_context_write(&mut exec_step, current_call.call_id, field, value);
+                }
                 state.handle_return(geth_step)?;
-                /* 
+                /*
                 // FIXME: is this correct?
                 if call.is_success {
                     let caller_ctx = state.caller_ctx_mut()?;
@@ -223,6 +248,16 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
                 }
                 state.tx_ctx.pop_call_ctx();
                 */
+                let real_cost = geth_steps[0].gas.0 - geth_steps[1].gas.0;
+                if real_cost != exec_step.gas_cost.0 {
+                    log::warn!(
+                        "precompile gas fixed from {} to {}, step {:?}",
+                        exec_step.gas_cost.0,
+                        real_cost,
+                        geth_steps[0]
+                    );
+                }
+                exec_step.gas_cost = GasCost(real_cost);
                 Ok(vec![exec_step])
             }
             // 2. Call to account with empty code.
@@ -236,6 +271,19 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
                     state.call_context_write(&mut exec_step, current_call.call_id, field, value);
                 }
                 state.handle_return(geth_step)?;
+
+                // FIXME
+                let real_cost = geth_steps[0].gas.0 - geth_steps[1].gas.0;
+                if real_cost != exec_step.gas_cost.0 {
+                    log::warn!(
+                        "precompile gas fixed from {} to {}, step {:?}",
+                        exec_step.gas_cost.0,
+                        real_cost,
+                        geth_steps[0]
+                    );
+                }
+                exec_step.gas_cost = GasCost(real_cost);
+
                 Ok(vec![exec_step])
             }
             // 3. Call to account with non-empty code.
@@ -249,10 +297,13 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
                         CallContextField::StackPointer,
                         (geth_step.stack.stack_pointer().0 + 6).into(),
                     ),
-                    (
-                        CallContextField::GasLeft,
-                        (geth_step.gas.0 - gas_cost - callee_gas_left).into(),
-                    ),
+                    (CallContextField::GasLeft, {
+                        println!(
+                            "geth_step.gas.0 - gas_cost - callee_gas_left {:?} {:?} {:?}",
+                            geth_step.gas.0, gas_cost, callee_gas_left
+                        );
+                        (geth_step.gas.0 - gas_cost - callee_gas_left).into()
+                    }),
                     (CallContextField::MemorySize, next_memory_word_size.into()),
                     (
                         CallContextField::ReversibleWriteCounter,

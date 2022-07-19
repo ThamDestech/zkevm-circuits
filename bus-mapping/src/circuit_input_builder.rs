@@ -144,16 +144,26 @@ impl<'a> CircuitInputBuilder {
         for (tx_index, tx) in eth_block.transactions.iter().enumerate() {
             let geth_trace = &geth_traces[tx_index];
             if geth_trace.struct_logs.is_empty() {
+                // only update state
+                self.sdb.increase_nonce(&tx.from);
+                let (_, from_acc) = self.sdb.get_account_mut(&tx.from);
+                from_acc.balance -= tx.value;
+                from_acc.balance -= tx.gas * tx.gas_price.unwrap();
+
+                let (_, to_acc) = self.sdb.get_account_mut(&tx.from);
+                to_acc.balance += tx.value;
+
                 log::warn!("Native transfer transaction is left unimplemented");
                 continue;
             }
             if tx.to.is_none() {
-                log::warn!("Creation transaction is left unimplemented");
-                continue;
+                //log::warn!("Creation transaction is left unimplemented");
+                //continue;
             }
             log::info!(
-                "handling {}th tx {:?}",
+                "handling {}th(inner idx: {}) tx {:?}",
                 tx.transaction_index.unwrap_or_default(),
+                self.block.txs.len(),
                 tx.hash
             );
             let mut tx = tx.clone();
@@ -204,11 +214,12 @@ impl<'a> CircuitInputBuilder {
         for (index, geth_step) in geth_trace.struct_logs.iter().enumerate() {
             let mut state_ref = self.state_ref(&mut tx, &mut tx_ctx);
             log::trace!(
-                "handle {}th tx depth {} {}th opcode {:?} {}",
+                "handle {}th tx depth {} {}th opcode {:?} pc: {} args: {}",
                 eth_tx.transaction_index.unwrap_or_default(),
                 geth_step.depth,
                 index,
                 geth_step.op,
+                geth_step.pc.0,
                 if geth_step.op.is_push() {
                     match geth_step.stack.last() {
                         Ok(w) => format!("{:?}", w),

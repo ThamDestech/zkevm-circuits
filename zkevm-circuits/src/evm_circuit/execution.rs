@@ -3,7 +3,7 @@ use crate::{
     evm_circuit::{
         param::{MAX_STEP_HEIGHT, STEP_WIDTH},
         step::{ExecutionState, Step},
-        table::{LookupTable, Table},
+        table::{LookupTable, RwTableTag, Table, TxReceiptFieldTag},
         util::{
             constraint_builder::{BaseConstraintBuilder, ConstraintBuilder},
             rlc, CellType,
@@ -21,7 +21,7 @@ use halo2_proofs::{
     poly::Rotation,
 };
 use std::{collections::HashMap, convert::TryInto, iter};
-use strum::IntoEnumIterator;
+use strum::{EnumCount, IntoEnumIterator};
 
 mod add_sub;
 mod addmod;
@@ -768,11 +768,39 @@ impl<F: Field> ExecutionConfig<F> {
                     let next = steps.peek();
                     if let Some(&(t, _c, _s)) = next {
                         if t != transaction {
-                            let mut tt = transaction.clone();
-                            tt.call_data.clear();
-                            tt.calls.clear();
-                            tt.steps.clear();
-                            log::info!("offset {} assign last step of tx {:?}", offset, tt);
+                            let mut tx = transaction.clone();
+                            tx.call_data.clear();
+                            tx.calls.clear();
+                            tx.steps.clear();
+                            let total_gas = if step.execution_state == ExecutionState::EndTx {
+                                let gas_used = tx.gas - step.gas_left;
+                                let current_cumulative_gas_used: u64 = if tx.id == 1 {
+                                    0
+                                } else {
+                                    // first transaction needs TxReceiptFieldTag::COUNT(3) lookups
+                                    // to tx receipt,
+                                    // while later transactions need 4 (with one extra cumulative
+                                    // gas read) lookups
+                                    let rw = &block.rws[(
+                                        RwTableTag::TxReceipt,
+                                        (tx.id - 2) * (TxReceiptFieldTag::COUNT + 1) + 2,
+                                    )];
+                                    rw.receipt_value()
+                                };
+                                current_cumulative_gas_used + gas_used
+                            } else {
+                                log::error!("last step not end tx? {:?}", step);
+                                0
+                            };
+
+                            log::info!(
+                                "offset {} tx_num {} total_gas {} assign last step {:?} of tx {:?}",
+                                offset,
+                                tx.id,
+                                total_gas,
+                                step,
+                                tx
+                            );
                         }
                     } else {
                         log::info!("assign last step of block");
@@ -860,6 +888,7 @@ impl<F: Field> ExecutionConfig<F> {
 
                 if !exact {
                     if block.pad_to != 0 {
+                        log::info!("pad block height to {}", block.pad_to);
                         // Pad leftover region to the desired capacity
                         if offset >= block.pad_to {
                             panic!("row not enough");
@@ -876,10 +905,12 @@ impl<F: Field> ExecutionConfig<F> {
                         log::warn!("assign_block with exact = false, but pad_to not provided");
                     }
                 }
-
+                log::info!("Execution step assign done");
                 Ok(())
             },
-        )
+        )?;
+        log::info!("assign_block done");
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1097,7 +1128,14 @@ impl<F: Field> ExecutionConfig<F> {
         let assigned_stored_expressions = self.assign_stored_expressions(region, offset, step)?;
 
         if true || !is_dummy {
-            Self::check_rw_lookup(&assigned_stored_expressions, step, block);
+            Self::check_rw_lookup(
+                &assigned_stored_expressions,
+                offset,
+                step,
+                call,
+                transaction,
+                block,
+            );
         }
         Ok(())
     }
@@ -1124,7 +1162,10 @@ impl<F: Field> ExecutionConfig<F> {
     }
     fn check_rw_lookup(
         assigned_stored_expressions: &Vec<(String, F)>,
+        offset: usize,
         step: &ExecStep,
+        call: &Call,
+        transaction: &Transaction,
         block: &Block<F>,
     ) {
         let mut assigned_rw_values = Vec::new();
@@ -1141,19 +1182,7 @@ impl<F: Field> ExecutionConfig<F> {
         // Fill in the witness values for stored expressions
 
         for idx in 0..assigned_rw_values.len() {
-            let rw_idx = step.rw_indices[idx];
-            let rw = block.rws[rw_idx];
-            let table_assignments = rw.table_assignment(block.randomness);
-            let rlc = table_assignments.rlc(block.randomness, block.randomness);
-            if rlc != assigned_rw_values[idx].1 {
-                log::error!(
-                    "incorrect rw witness. input: value {:?}, name {}. table: value {:?}, table_assignments {:?}, rw {:?}, index {:?}, {}th rw of step {:?}.",
-                    assigned_rw_values[idx].1,
-                    assigned_rw_values[idx].0,
-                    rlc,
-                    table_assignments,
-                    rw,
-                    rw_idx, idx, step);
+            let log_ctx = || {
                 log::error!("assigned_rw_values {:?}", assigned_rw_values);
                 for rw_idx in &step.rw_indices {
                     log::error!(
@@ -1164,8 +1193,46 @@ impl<F: Field> ExecutionConfig<F> {
                             .rlc(block.randomness, block.randomness)
                     );
                 }
+                let mut tx = transaction.clone();
+                tx.call_data.clear();
+                tx.calls.clear();
+                tx.steps.clear();
+                log::error!(
+                    "ctx: offset {} step {:?}. call: {:?}, tx: {:?}, block number {:?}",
+                    offset,
+                    step,
+                    call,
+                    tx,
+                    block.context.number
+                );
+            };
+            if idx >= step.rw_indices.len() {
+                log_ctx();
+                panic!(
+                    "invalid rw len exp {} witness {}",
+                    assigned_rw_values.len(),
+                    step.rw_indices.len()
+                );
+            }
+            let rw_idx = step.rw_indices[idx];
+            let rw = block.rws[rw_idx];
+            let table_assignments = rw.table_assignment(block.randomness);
+            let rlc = table_assignments.rlc(block.randomness, block.randomness);
+            if rlc != assigned_rw_values[idx].1 {
+                log_ctx();
+                log::error!(
+                    "incorrect rw witness. input_value {:?}, name \"{}\". table_value {:?}, table_assignments {:?}, rw {:?}, index {:?}, {}th rw of step",
+                    assigned_rw_values[idx].1,
+                    assigned_rw_values[idx].0,
+                    rlc,
+                    table_assignments,
+                    rw,
+                    rw_idx, idx);
 
-                debug_assert_eq!(rlc, assigned_rw_values[idx].1);
+                debug_assert_eq!(
+                    rlc, assigned_rw_values[idx].1,
+                    "left is witness, right is expression"
+                );
             }
         }
     }

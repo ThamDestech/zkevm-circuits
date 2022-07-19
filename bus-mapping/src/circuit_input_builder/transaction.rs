@@ -236,6 +236,11 @@ impl Transaction {
         } else {
             // Contract creation
             let code_hash = code_db.insert(None, eth_tx.input.to_vec());
+            log::info!(
+                "create contract code_hash {:?} input len {:?}",
+                code_hash,
+                eth_tx.input.to_vec().len()
+            );
             Call {
                 call_id,
                 kind: CallKind::Create,
