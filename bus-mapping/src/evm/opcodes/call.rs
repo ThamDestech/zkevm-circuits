@@ -1,5 +1,5 @@
 use super::Opcode;
-use crate::evm::precompiled::execute_precompiled;
+use precompiled_bridge::execute_precompiled;
 use crate::{
     circuit_input_builder::{CircuitInputStateRef, ExecStep},
     operation::{AccountField, CallContextField, TxAccessListAccountOp, RW},
@@ -189,7 +189,7 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
                         &caller_ctx.memory.0[args_offset..args_offset + args_length],
                     );
                     caller_ctx.memory.0[ret_offset..ret_offset + ret_length]
-                        .copy_from_slice(&result.0[..ret_length]);
+                        .copy_from_slice(&result[..ret_length]);
                 }
                 state.tx_ctx.pop_call_ctx();
 
@@ -276,7 +276,7 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
 }
 
 #[cfg(test)]
-mod return_tests {
+mod call_tests {
     use crate::mock::BlockData;
     use eth_types::geth_types::GethData;
     use eth_types::{bytecode, word};
