@@ -1,5 +1,4 @@
 use super::Opcode;
-use precompiled_bridge::execute_precompiled;
 use crate::{
     circuit_input_builder::{CircuitInputStateRef, ExecStep},
     operation::{AccountField, CallContextField, TxAccessListAccountOp, RW},
@@ -14,6 +13,7 @@ use eth_types::{
 };
 use keccak256::EMPTY_HASH;
 use log::warn;
+use precompiled_bridge::execute_precompiled;
 use std::cmp::max;
 
 /// Placeholder structure used to implement [`Opcode`] trait over it
@@ -173,7 +173,9 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
         // There are 3 branches from here.
         let code_address = call.code_address();
         match (
-            code_address.map(|ref addr| state.is_precompiled(addr)).unwrap_or(false),
+            code_address
+                .map(|ref addr| state.is_precompiled(addr))
+                .unwrap_or(false),
             callee_code_hash.to_fixed_bytes() == *EMPTY_HASH,
         ) {
             // 1. Call to precompiled.
@@ -340,8 +342,8 @@ mod call_tests {
             tx_from_1_to_0,
             |block, _tx| block.number(0xcafeu64),
         )
-            .unwrap()
-            .into();
+        .unwrap()
+        .into();
 
         let mut builder = BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
         builder
@@ -372,8 +374,8 @@ mod call_tests {
             tx_from_1_to_0,
             |block, _tx| block.number(0xcafeu64),
         )
-            .unwrap()
-            .into();
+        .unwrap()
+        .into();
 
         let mut builder = BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
         builder
@@ -404,8 +406,373 @@ mod call_tests {
             tx_from_1_to_0,
             |block, _tx| block.number(0xcafeu64),
         )
-            .unwrap()
-            .into();
+        .unwrap()
+        .into();
+
+        let mut builder = BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
+        builder
+            .handle_block(&block.eth_block, &block.geth_traces)
+            .unwrap();
+    }
+
+    #[test]
+    fn test_ec_recover() {
+        let code = bytecode! {
+            // First place the parameters in memory
+            PUSH32(word!("456e9aea5e197a1f1af7a3e85a3212fa4049a3ba34c2289b4c860fc0b0c64ef3")) // hash
+            PUSH1(0)
+            MSTORE
+            PUSH1(28) // v
+            PUSH1(0x20)
+            MSTORE
+            PUSH32(word!("9242685bf161793cc25603c231bc2f568eb630ea16aa137d2664ac8038825608")) // r
+            PUSH1(0x40)
+            MSTORE
+            PUSH32(word!("4f8ae3bd7535248d0bd448298cc2e2071e56992d0774dc340c368ae950852ada")) // s
+            PUSH1(0x60)
+            MSTORE
+
+            // Do the call
+            PUSH1(32) // retSize
+            PUSH1(0x80) // retOffset
+            PUSH1(0x80) // argsSize
+            PUSH1(0) // argsOffset
+            PUSH1(1) // address
+            PUSH4(word!("FFFFFFFF")) // gas
+            STATICCALL
+        };
+
+        // Get the execution steps from the external tracer
+        let block: GethData = TestContext::<2, 1>::new(
+            None,
+            account_0_code_account_1_no_code(code),
+            tx_from_1_to_0,
+            |block, _tx| block.number(0xcafeu64),
+        )
+        .unwrap()
+        .into();
+
+        let mut builder = BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
+        builder
+            .handle_block(&block.eth_block, &block.geth_traces)
+            .unwrap();
+    }
+
+    #[test]
+    fn test_sha2() {
+        let code = bytecode! {
+            // First place the parameters in memory
+            PUSH1(0xFF) // data
+            PUSH1(0)
+            MSTORE
+
+            // Do the call
+            PUSH1(0x20) // retSize
+            PUSH1(0x20) // retOffset
+            PUSH1(1) // argsSize
+            PUSH1(0x1F) // argsOffset
+            PUSH1(2) // address
+            PUSH4(word!("FFFFFFFF")) // gas
+            STATICCALL
+        };
+
+        // Get the execution steps from the external tracer
+        let block: GethData = TestContext::<2, 1>::new(
+            None,
+            account_0_code_account_1_no_code(code),
+            tx_from_1_to_0,
+            |block, _tx| block.number(0xcafeu64),
+        )
+        .unwrap()
+        .into();
+
+        let mut builder = BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
+        builder
+            .handle_block(&block.eth_block, &block.geth_traces)
+            .unwrap();
+    }
+
+    #[test]
+    fn test_ripemd_160() {
+        let code = bytecode! {
+            // First place the parameters in memory
+            PUSH1(0xFF) // data
+            PUSH1(0)
+            MSTORE
+
+            // Do the call
+            PUSH1(0x20) // retSize
+            PUSH1(0x20) // retOffset
+            PUSH1(1) // argsSize
+            PUSH1(0x1F) // argsOffset
+            PUSH1(3) // address
+            PUSH4(word!("FFFFFFFF")) // gas
+            STATICCALL
+        };
+
+        // Get the execution steps from the external tracer
+        let block: GethData = TestContext::<2, 1>::new(
+            None,
+            account_0_code_account_1_no_code(code),
+            tx_from_1_to_0,
+            |block, _tx| block.number(0xcafeu64),
+        )
+        .unwrap()
+        .into();
+
+        let mut builder = BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
+        builder
+            .handle_block(&block.eth_block, &block.geth_traces)
+            .unwrap();
+    }
+
+    #[test]
+    fn test_modexp() {
+        let code = bytecode! {
+            // First place the parameters in memory
+            PUSH1(1) // Bsize
+            PUSH1(0)
+            MSTORE
+            PUSH1(1) // Esize
+            PUSH1(0x20)
+            MSTORE
+            PUSH1(1) // Msize
+            PUSH1(0x40)
+            MSTORE
+            PUSH32(word!("08090A0000000000000000000000000000000000000000000000000000000000")) // B, E and M
+            PUSH1(0x60)
+            MSTORE
+
+            // Do the call
+            PUSH1(1) // retSize
+            PUSH1(0x9F) // retOffset
+            PUSH1(0x63) // argsSize
+            PUSH1(0) // argsOffset
+            PUSH1(5) // address
+            PUSH4(word!("FFFFFFFF")) // gas
+            STATICCALL
+        };
+
+        // Get the execution steps from the external tracer
+        let block: GethData = TestContext::<2, 1>::new(
+            None,
+            account_0_code_account_1_no_code(code),
+            tx_from_1_to_0,
+            |block, _tx| block.number(0xcafeu64),
+        )
+        .unwrap()
+        .into();
+
+        let mut builder = BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
+        builder
+            .handle_block(&block.eth_block, &block.geth_traces)
+            .unwrap();
+    }
+
+    #[test]
+    fn test_ec_add() {
+        let code = bytecode! {
+            // First place the parameters in memory
+            PUSH1(1) // x1
+            PUSH1(0)
+            MSTORE
+            PUSH1(2) // y1
+            PUSH1(0x20)
+            MSTORE
+            PUSH1(1) // x2
+            PUSH1(0x40)
+            MSTORE
+            PUSH1(2) // y2
+            PUSH1(0x60)
+            MSTORE
+
+            // Do the call
+            PUSH1(0x40) // retSize
+            PUSH1(0x80) // retOffset
+            PUSH1(0x80) // argsSize
+            PUSH1(0) // argsOffset
+            PUSH1(6) // address
+            PUSH4(word!("FFFFFFFF")) // gas
+            STATICCALL
+        };
+
+        // Get the execution steps from the external tracer
+        let block: GethData = TestContext::<2, 1>::new(
+            None,
+            account_0_code_account_1_no_code(code),
+            tx_from_1_to_0,
+            |block, _tx| block.number(0xcafeu64),
+        )
+        .unwrap()
+        .into();
+
+        let mut builder = BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
+        builder
+            .handle_block(&block.eth_block, &block.geth_traces)
+            .unwrap();
+    }
+
+    #[test]
+    fn test_ec_mul() {
+        let code = bytecode! {
+            // First place the parameters in memory
+            PUSH1(1) // x1
+            PUSH1(0)
+            MSTORE
+            PUSH1(2) // y1
+            PUSH1(0x20)
+            MSTORE
+            PUSH1(2) // s
+            PUSH1(0x40)
+            MSTORE
+
+            // Do the call
+            PUSH1(0x40) // retSize
+            PUSH1(0x60) // retOffset
+            PUSH1(0x60) // argsSize
+            PUSH1(0) // argsOffset
+            PUSH1(7) // address
+            PUSH4(word!("FFFFFFFF")) // gas
+            STATICCALL
+        };
+
+        // Get the execution steps from the external tracer
+        let block: GethData = TestContext::<2, 1>::new(
+            None,
+            account_0_code_account_1_no_code(code),
+            tx_from_1_to_0,
+            |block, _tx| block.number(0xcafeu64),
+        )
+        .unwrap()
+        .into();
+
+        let mut builder = BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
+        builder
+            .handle_block(&block.eth_block, &block.geth_traces)
+            .unwrap();
+    }
+
+    #[test]
+    fn test_ec_pairing() {
+        let code = bytecode! {
+            PUSH32(word!("2cf44499d5d27bb186308b7af7af02ac5bc9eeb6a3d147c186b21fb1b76e18da"))
+            PUSH1(0x0)
+            MSTORE
+
+            PUSH32(word!("2c0f001f52110ccfe69108924926e45f0b0c868df0e7bde1fe16d3242dc715f6"))
+            PUSH1(0x20)
+            MSTORE
+
+            PUSH32(word!("1fb19bb476f6b9e44e2a32234da8212f61cd63919354bc06aef31e3cfaff3ebc"))
+            PUSH1(0x40)
+            MSTORE
+
+            PUSH32(word!("22606845ff186793914e03e21df544c34ffe2f2f3504de8a79d9159eca2d98d9"))
+            PUSH1(0x60)
+            MSTORE
+
+            PUSH32(word!("2bd368e28381e8eccb5fa81fc26cf3f048eea9abfdd85d7ed3ab3698d63e4f90"))
+            PUSH1(0x80)
+            MSTORE
+
+            PUSH32(word!("2fe02e47887507adf0ff1743cbac6ba291e66f59be6bd763950bb16041a0a85e"))
+            PUSH1(0xA0)
+            MSTORE
+
+            PUSH32(word!("0000000000000000000000000000000000000000000000000000000000000001"))
+            PUSH1(0xC0)
+            MSTORE
+
+            PUSH32(word!("30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd45"))
+            PUSH1(0xE0)
+            MSTORE
+
+            PUSH32(word!("1971ff0471b09fa93caaf13cbf443c1aede09cc4328f5a62aad45f40ec133eb4"))
+            PUSH2(0x0100)
+            MSTORE
+
+            PUSH32(word!("091058a3141822985733cbdddfed0fd8d6c104e9e9eff40bf5abfef9ab163bc7"))
+            PUSH2(0x0120)
+            MSTORE
+
+            PUSH32(word!("2a23af9a5ce2ba2796c1f4e453a370eb0af8c212d9dc9acd8fc02c2e907baea2"))
+            PUSH2(0x0140)
+            MSTORE
+
+            PUSH32(word!("23a8eb0b0996252cb548a4487da97b02422ebc0e834613f954de6c7e0afdc1fc"))
+            PUSH2(0x0160)
+            MSTORE
+
+
+            PUSH1(0x20) // retSize
+            PUSH2(0x180)  // retOffset
+            PUSH2(0x0180) // argsSize
+            PUSH1(0x0) // argsOffset
+            PUSH1(0x08) // address
+            PUSH4(word!("FFFFFFFF")) // gas
+            STATICCALL
+        };
+
+        // Get the execution steps from the external tracer
+        let block: GethData = TestContext::<2, 1>::new(
+            None,
+            account_0_code_account_1_no_code(code),
+            tx_from_1_to_0,
+            |block, _tx| block.number(0xcafeu64),
+        )
+        .unwrap()
+        .into();
+
+        let mut builder = BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
+        builder
+            .handle_block(&block.eth_block, &block.geth_traces)
+            .unwrap();
+    }
+
+    #[test]
+    fn test_blake2f() {
+        let code = bytecode! {
+            PUSH1(0x0000000C)
+            PUSH1(0x0)
+            MSTORE
+
+            PUSH32(word!("48c9bdf267e6096a3ba7ca8485ae67bb2bf894fe72f36e3cf1361d5f3af54fa5"))
+            PUSH1(0x20)
+            MSTORE
+            PUSH32(word!("d182e6ad7f520e511f6c3e2b8c68059b6bbd41fbabd9831f79217e1319cde05b"))
+            PUSH1(0x40)
+            MSTORE
+
+            PUSH32(word!("6162630000000000000000000000000000000000000000000000000000000000"))
+            PUSH1(0x60)
+            MSTORE
+            PUSH32(0x0)
+            PUSH1(0xC0)
+            MSTORE
+
+            PUSH32(word!("0300000000000000010000000000000000000000000000000000000000000000"))
+            PUSH1(0xE0)
+            MSTORE
+
+            // Do the call
+            PUSH1(0x40) // retSize
+            PUSH1(0xC0) // retOffset
+            PUSH1(212) // argsSize
+            PUSH1(28) // argsOffset
+            PUSH1(0x04) // address
+            PUSH4(word!("FFFFFFFF")) // gas
+            STATICCALL
+        };
+
+        // Get the execution steps from the external tracer
+        let block: GethData = TestContext::<2, 1>::new(
+            None,
+            account_0_code_account_1_no_code(code),
+            tx_from_1_to_0,
+            |block, _tx| block.number(0xcafeu64),
+        )
+        .unwrap()
+        .into();
 
         let mut builder = BlockData::new_from_geth_data(block.clone()).new_circuit_input_builder();
         builder
