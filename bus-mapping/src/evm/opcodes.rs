@@ -10,7 +10,7 @@ use crate::{
 use core::fmt::Debug;
 use eth_types::{
     evm_types::{GasCost, MAX_REFUND_QUOTIENT_OF_GAS_USED},
-    GethExecStep, ToAddress, ToWord, Word, U256,
+    GethExecStep, ToAddress, ToWord, Word,
 };
 use keccak256::EMPTY_HASH;
 use log::warn;

@@ -28,7 +28,7 @@ use eth_types::{
     Field, ToLittleEndian, ToScalar, U256,
 };
 use halo2_proofs::plonk::Error;
-use keccak256::{EMPTY_HASH_LE, EMPTY_HASH};
+use keccak256::{EMPTY_HASH, EMPTY_HASH_LE};
 
 #[derive(Clone, Debug)]
 pub(crate) struct CallGadget<F> {
@@ -343,7 +343,7 @@ impl<F: Field> ExecutionGadget<F> for CallGadget<F> {
         region: &mut CachedRegion<'_, '_, F>,
         offset: usize,
         block: &Block<F>,
-        tx: &Transaction,
+        _tx: &Transaction,
         call: &Call,
         step: &ExecStep,
     ) -> Result<(), Error> {
@@ -492,7 +492,8 @@ impl<F: Field> ExecutionGadget<F> for CallGadget<F> {
         //println!("gas cost is_warm_prev {} has_value {} ")
         let gas_available = step.gas_left - gas_cost;
 
-        //log::trace!("callee_code_hash {:?} EMPTY_HASH {:?} ", callee_code_hash, U256::from(*EMPTY_HASH_LE));
+        //log::trace!("callee_code_hash {:?} EMPTY_HASH {:?} ", callee_code_hash,
+        // U256::from(*EMPTY_HASH_LE));
         if callee_code_hash != U256::from(*EMPTY_HASH) {
             // non empty
             let gas_left_value = block.rws[step.rw_indices[23]].call_context_value();

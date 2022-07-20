@@ -5,7 +5,7 @@ use crate::{
     operation::{AccountField, CallContextField, TxAccessListAccountOp, RW},
     Error,
 };
-use eth_types::evm_types::{Gas, OpcodeId};
+use eth_types::evm_types::OpcodeId;
 use eth_types::{
     evm_types::{
         gas_utils::{eip150_gas, memory_expansion_gas_cost},
