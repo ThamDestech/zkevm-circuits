@@ -846,7 +846,7 @@ impl<'a> CircuitInputStateRef<'a> {
         let call_ctx = self.call_ctx()?;
 
         // Return from a call with a failure
-        if step.depth != next_depth && next_result.is_zero() {
+        if step.depth == next_depth + 1 && next_result.is_zero() {
             if !matches!(step.op, OpcodeId::RETURN) {
                 // Without calling RETURN
                 return Ok(match step.op {
@@ -868,13 +868,10 @@ impl<'a> CircuitInputStateRef<'a> {
                     }
                     OpcodeId::REVERT => None,
                     _ => {
-                        // TODO: for call sucess case will enter here, comment this for now
-                        // return Err(Error::UnexpectedExecStepError(
-                        //     "call failure without return",
-                        //     step.clone(),
-                        // ));
-
-                        None
+                        return Err(Error::UnexpectedExecStepError(
+                            "call failure without return",
+                            step.clone(),
+                        ));
                     }
                 });
             } else {
