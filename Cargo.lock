@@ -457,7 +457,7 @@ dependencies = [
  "lazy_static",
  "log",
  "mock",
- "precompiled-bridge",
+ "precompiled-adaptor",
  "pretty_assertions",
  "rand 0.8.5",
  "serde",
@@ -3623,9 +3623,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb9f9e6e233e5c4a35559a617bf40a4ec447db2e84c20b55a6f83167b7e57872"
 
 [[package]]
-name = "precompiled-bridge"
+name = "precompiled-adaptor"
 version = "0.1.0"
-source = "git+ssh://git@github.com/scroll-tech/precompiled-bridge.git?rev=4d03ba39a32f82d0ddc39d7efd1b193b625d1678#4d03ba39a32f82d0ddc39d7efd1b193b625d1678"
+source = "git+https://github.com/scroll-tech/precompiled-adaptor.git?rev=927777002cf7d7b0b35d6ace559a18282c766e52#927777002cf7d7b0b35d6ace559a18282c766e52"
 dependencies = [
  "fp-evm",
  "pallet-evm-precompile-blake2",
