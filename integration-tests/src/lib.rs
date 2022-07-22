@@ -66,10 +66,10 @@ lazy_static! {
         Err(e) => panic!("Error in TX_ID env var: {:?}", e),
     };
     /// ..
-    pub static ref PAR: bool =  match env::var("PAR") {
+    pub static ref FAST: bool =  match env::var("FAST") {
         Ok(val) => val.parse().unwrap(),
         Err(VarError::NotPresent) => true,
-        Err(e) => panic!("Error in PAR env var: {:?}", e),
+        Err(e) => panic!("Error in FAST env var: {:?}", e),
     };
 
 }

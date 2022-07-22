@@ -418,7 +418,6 @@ impl RwMap {
         rows
     }
 }
-
 #[derive(Clone, Copy, Debug)]
 pub enum Rw {
     Start {

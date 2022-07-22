@@ -156,10 +156,6 @@ impl<'a> CircuitInputBuilder {
                 log::warn!("Native transfer transaction is left unimplemented");
                 continue;
             }
-            if tx.to.is_none() {
-                //log::warn!("Creation transaction is left unimplemented");
-                //continue;
-            }
             log::info!(
                 "handling {}th(inner idx: {}) tx {:?}",
                 tx.transaction_index.unwrap_or_default(),

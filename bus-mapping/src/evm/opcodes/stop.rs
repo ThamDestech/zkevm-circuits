@@ -33,7 +33,6 @@ impl Opcode for Stop {
             1.into(),
         );
 
-        log::debug!("stop gen_associated_ops call {:?}", call);
         if call.is_root {
             state.call_context_read(
                 &mut exec_step,

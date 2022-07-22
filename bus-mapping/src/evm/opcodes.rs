@@ -427,7 +427,7 @@ pub fn gen_begin_tx_ops(state: &mut CircuitInputStateRef) -> Result<ExecStep, Er
             warn!("Call to precompiled is left unimplemented");
             Ok(exec_step)
         }
-        (_is_create, _, is_empty_code_hash) => {
+        (_, _, is_empty_code_hash) => {
             state.account_read(
                 &mut exec_step,
                 call.address,
@@ -560,9 +560,8 @@ pub fn gen_end_tx_ops(
     let mut current_cumulative_gas_used: u64 = 0;
 
     if state.tx_ctx.id() > 1 {
-        //current_cumulative_gas_used = *cumulative_gas_used.get(&(state.tx_ctx.id() -
-        // 1)).unwrap_or(&current_cumulative_gas_used);
         current_cumulative_gas_used = *cumulative_gas_used.last_key_value().unwrap().1;
+        // query pre tx cumulative gas
         state.tx_receipt_read(
             &mut exec_step,
             state.tx_ctx.id() - 1,

@@ -34,7 +34,6 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
         let geth_step = &geth_steps[0];
         let next_step = &geth_steps[1];
 
-
         let mut exec_step = state.new_step(geth_step)?;
         let tx_id = state.tx_ctx.id();
         let call = state.parse_call(geth_step)?;
@@ -103,7 +102,7 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
             exec_step.error = Some(exec_error.clone());
             if !call.is_success && exec_error == ExecError::InsufficientBalance {
                 // Switch to callee's call context
-                state.push_call(call, geth_step);
+                state.push_call(call);
                 state.handle_return(geth_step)?;
                 return Ok(vec![exec_step]);
             } else {
@@ -146,17 +145,6 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
             call.value,
         )?;
         let is_account_empty = callee_account.is_empty();
-        println!(
-            "ACCEMPTY is account empty {} {:?}",
-            is_account_empty, callee_account
-        );
-        /*
-
-        self.nonce.is_zero()
-            && self.balance.is_zero()
-            && self.storage.is_empty()
-            && self.code_hash.eq(&CODE_HASH_ZERO)
-         */
         let callee_nonce = callee_account.nonce;
         let callee_code_hash = call.code_hash;
         debug_assert!(!callee_code_hash.is_zero());
@@ -292,7 +280,7 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
                 let real_cost = geth_steps[0].gas.0 - geth_steps[1].gas.0;
                 if real_cost != exec_step.gas_cost.0 {
                     log::warn!(
-                        "precompile gas fixed from {} to {}, step {:?}",
+                        "empty call gas fixed from {} to {}, step {:?}",
                         exec_step.gas_cost.0,
                         real_cost,
                         geth_steps[0]
@@ -313,13 +301,10 @@ impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
                         CallContextField::StackPointer,
                         (geth_step.stack.stack_pointer().0 + 6).into(),
                     ),
-                    (CallContextField::GasLeft, {
-                        println!(
-                            "geth_step.gas.0 - gas_cost - callee_gas_left {:?} {:?} {:?}",
-                            geth_step.gas.0, gas_cost, callee_gas_left
-                        );
-                        (geth_step.gas.0 - gas_cost - callee_gas_left).into()
-                    }),
+                    (
+                        CallContextField::GasLeft,
+                        (geth_step.gas.0 - gas_cost - callee_gas_left).into(),
+                    ),
                     (CallContextField::MemorySize, next_memory_word_size.into()),
                     (
                         CallContextField::ReversibleWriteCounter,

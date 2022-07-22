@@ -211,11 +211,6 @@ impl<F: Field> ExecutionGadget<F> for CallGadget<F> {
             all_but_one_64th_gas,
         );
 
-        // debug
-        //let debug_gas_left = cb.query_cell();
-        //let debug_gas_cost = cb.query_cell();
-        //let debug_callee_gas_left = cb.query_cell();
-
         // TODO: Handle precompiled
 
         let gas_cost_cell = cb.query_cell();
@@ -454,11 +449,6 @@ impl<F: Field> ExecutionGadget<F> for CallGadget<F> {
                 block.randomness,
             )),
         )?;
-        println!(
-            "ACCEMPTY callee_nonce {} callee_balance_pair {:?}",
-            callee_nonce.low_u64(),
-            callee_balance_pair
-        );
         let is_account_empty = self.is_account_empty.assign(
             region,
             offset,
@@ -467,7 +457,6 @@ impl<F: Field> ExecutionGadget<F> for CallGadget<F> {
                 Word::random_linear_combine(callee_balance_pair.1.to_le_bytes(), block.randomness),
             ],
         )?;
-
         let is_empty_code_hash = self.is_empty_code_hash.assign(
             region,
             offset,
@@ -489,23 +478,13 @@ impl<F: Field> ExecutionGadget<F> for CallGadget<F> {
         } else {
             0
         } + memory_expansion_gas_cost;
-        //println!("gas cost is_warm_prev {} has_value {} ")
         let gas_available = step.gas_left - gas_cost;
 
-        //log::trace!("callee_code_hash {:?} EMPTY_HASH {:?} ", callee_code_hash,
-        // U256::from(*EMPTY_HASH_LE));
         if callee_code_hash != U256::from(*EMPTY_HASH) {
             // non empty
             let gas_left_value = block.rws[step.rw_indices[23]].call_context_value();
             let real_callee_gas_left =
                 std::cmp::min(gas_available - gas_available / 64, gas.low_u64());
-            println!(
-                "{} {} {} {}",
-                gas_left_value.as_u64(),
-                step.gas_left,
-                gas_cost,
-                real_callee_gas_left
-            );
             debug_assert_eq!(
                 gas_left_value.as_u64(),
                 step.gas_left - gas_cost - real_callee_gas_left

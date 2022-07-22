@@ -120,13 +120,6 @@ fn gen_memory_copy_steps(
     let mut steps = vec![];
     while copied < length {
         let mut exec_step = state.new_step(&geth_steps[1])?;
-        if length != 0 {
-            assert_ne!(
-                exec_step.memory_size, 0,
-                "invalid exec_step.memory_size cur geth step {:?} next geth step {:?}",
-                geth_steps[0], geth_steps[1]
-            );
-        }
         exec_step.exec_state = ExecState::CopyCodeToMemory;
         gen_memory_copy_step(
             state,

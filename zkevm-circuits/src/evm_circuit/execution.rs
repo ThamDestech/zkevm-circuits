@@ -134,10 +134,6 @@ pub(crate) trait ExecutionGadget<F: FieldExt> {
 
     const EXECUTION_STATE: ExecutionState;
 
-    fn is_dummy(&self) -> bool {
-        false
-    }
-
     fn configure(cb: &mut ConstraintBuilder<F>) -> Self;
 
     fn assign_exec_step(
@@ -978,15 +974,13 @@ impl<F: Field> ExecutionConfig<F> {
         self.step
             .assign_exec_step(region, offset, block, transaction, call, step)?;
 
-        // FIXME better way to do this?
         macro_rules! assign_exec_step {
-            ($gadget:expr) => {{
+            ($gadget:expr) => {
                 $gadget.assign_exec_step(region, offset, block, transaction, call, step)?;
-                $gadget.is_dummy()
-            }};
+            };
         }
 
-        let is_dummy = match step.execution_state {
+        match step.execution_state {
             // internal states
             ExecutionState::BeginTx => assign_exec_step!(self.begin_tx_gadget),
             ExecutionState::CopyCodeToMemory => assign_exec_step!(self.copy_code_to_memory_gadget),
@@ -1131,18 +1125,17 @@ impl<F: Field> ExecutionConfig<F> {
             _ => unimplemented!("unimplemented ExecutionState: {:?}", step.execution_state),
         };
 
+        // Fill in the witness values for stored expressions
         let assigned_stored_expressions = self.assign_stored_expressions(region, offset, step)?;
 
-        if true || !is_dummy {
-            Self::check_rw_lookup(
-                &assigned_stored_expressions,
-                offset,
-                step,
-                call,
-                transaction,
-                block,
-            );
-        }
+        Self::check_rw_lookup(
+            &assigned_stored_expressions,
+            offset,
+            step,
+            call,
+            transaction,
+            block,
+        );
         Ok(())
     }
 
@@ -1184,8 +1177,6 @@ impl<F: Field> ExecutionConfig<F> {
                 assigned_rw_values.push((name.clone(), *v));
             }
         }
-
-        // Fill in the witness values for stored expressions
 
         for idx in 0..assigned_rw_values.len() {
             let log_ctx = || {

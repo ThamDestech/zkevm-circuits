@@ -210,13 +210,11 @@ impl StateDB {
     /// Add `addr` into account access list. Returns `true` if it's not in the
     /// access list before.
     pub fn add_account_to_access_list(&mut self, addr: Address) -> bool {
-        //println!("add_account_to_access_list {:?}", addr);
         self.access_list_account.insert(addr)
     }
 
     /// Remove `addr` from account access list.
     pub fn remove_account_from_access_list(&mut self, addr: &Address) {
-        //println!("remove_account_from_access_list {:?}", addr);
         let exist = self.access_list_account.remove(addr);
         debug_assert!(exist);
     }

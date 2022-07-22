@@ -586,32 +586,30 @@ impl<'a> CircuitInputStateRef<'a> {
             ),
         };
 
-        let (code_source, code_hash) =
-            match kind {
-                CallKind::Create | CallKind::Create2 => {
-                    let init_code = get_create_init_code(caller_ctx, step)?.to_vec();
-                    let code_hash = self.code_db.insert(None, init_code);
-                    (CodeSource::Memory, code_hash)
-                }
-                _ => {
-                    let code_address = match kind {
-                        CallKind::CallCode | CallKind::DelegateCall => {
-                            step.stack.nth_last(1)?.to_address()
-                        }
-                        _ => address,
-                    };
-                    if self.is_precompiled(&code_address) {
-                        let empty_hash: H256 = H256::from(*EMPTY_HASH);
-                        (CodeSource::Address(code_address), empty_hash) // FIXME: is this correct?
-                    } else {
-                        let (found, account) = self.sdb.get_account(&code_address);
-                        if !found {
-                            return Err(Error::AccountNotFound(code_address));
-                        }
-                        (CodeSource::Address(code_address), account.code_hash)
+        let (code_source, code_hash) = match kind {
+            CallKind::Create | CallKind::Create2 => {
+                let init_code = get_create_init_code(caller_ctx, step)?.to_vec();
+                let code_hash = self.code_db.insert(None, init_code);
+                (CodeSource::Memory, code_hash)
+            }
+            _ => {
+                let code_address = match kind {
+                    CallKind::CallCode | CallKind::DelegateCall => {
+                        step.stack.nth_last(1)?.to_address()
                     }
+                    _ => address,
+                };
+                if self.is_precompiled(&code_address) {
+                    (CodeSource::Address(code_address), H256::from(*EMPTY_HASH))
+                } else {
+                    let (found, account) = self.sdb.get_account(&code_address);
+                    if !found {
+                        return Err(Error::AccountNotFound(code_address));
+                    }
+                    (CodeSource::Address(code_address), account.code_hash)
                 }
-            };
+            }
+        };
 
         let (call_data_offset, call_data_length, return_data_offset, return_data_length) =
             match kind {

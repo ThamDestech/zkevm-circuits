@@ -23,7 +23,6 @@ impl Opcode for Return {
         let memory = state.call_ctx()?.memory.clone();
         // skip reconstruction for root-level return/revert
         if !current_call.is_root {
-            let _caller = state.caller()?.clone();
             if !current_call.is_create() {
                 // handle normal return/revert
                 // copy return data
@@ -33,10 +32,8 @@ impl Opcode for Return {
                 // already resized in Call::reconstruct_memory
                 // caller_ctx.memory.extend_at_least(return_offset + length);
                 let copy_len = std::cmp::min(current_call.return_data_length as usize, length);
-
                 caller_ctx.memory.0[return_offset..return_offset + copy_len]
                     .copy_from_slice(&memory.0[offset..offset + copy_len]);
-
                 caller_ctx.return_data.resize(length as usize, 0);
                 caller_ctx
                     .return_data
