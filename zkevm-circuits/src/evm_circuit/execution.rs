@@ -765,16 +765,12 @@ impl<F: Field> ExecutionConfig<F> {
                     let height = self.get_step_height(step.execution_state);
                     // Assign the step witness
                     let next = steps.peek();
-                    let is_last = match next {
-                        Some(&(t, _c, _s)) => t != transaction,
-                        None => true,
-                    };
-                    if is_last {
+                    if step.execution_state == ExecutionState::EndTx {
                         let mut tx = transaction.clone();
                         tx.call_data.clear();
                         tx.calls.clear();
                         tx.steps.clear();
-                        let total_gas = if step.execution_state == ExecutionState::EndTx {
+                        let total_gas = {
                             let gas_used = tx.gas - step.gas_left;
                             let current_cumulative_gas_used: u64 = if tx.id == 1 {
                                 0
@@ -790,11 +786,7 @@ impl<F: Field> ExecutionConfig<F> {
                                 rw.receipt_value()
                             };
                             current_cumulative_gas_used + gas_used
-                        } else {
-                            log::error!("last step not end tx? {:?}", step);
-                            0
                         };
-
                         log::info!(
                             "offset {} tx_num {} total_gas {} assign last step {:?} of tx {:?}",
                             offset,
