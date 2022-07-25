@@ -13,7 +13,7 @@ use eth_types::{
 };
 use keccak256::EMPTY_HASH;
 use log::warn;
-use precompiled_bridge::execute_precompiled;
+use precompiled_adaptor::execute_precompiled;
 use std::cmp::max;
 
 /// Placeholder structure used to implement [`Opcode`] trait over it
@@ -23,7 +23,6 @@ pub(crate) struct Call<const N_ARGS: usize>;
 
 impl<const N_ARGS: usize> Opcode for Call<N_ARGS> {
     fn gen_associated_ops(
-        &self,
         state: &mut CircuitInputStateRef,
         geth_steps: &[GethExecStep],
     ) -> Result<Vec<ExecStep>, Error> {
