@@ -787,7 +787,7 @@ impl<F: Field> ExecutionConfig<F> {
                             };
                             current_cumulative_gas_used + gas_used
                         };
-                        log::info!(
+                        log::debug!(
                             "offset {} tx_num {} total_gas {} assign last step {:?} of tx {:?}",
                             offset,
                             tx.id,
@@ -879,7 +879,7 @@ impl<F: Field> ExecutionConfig<F> {
 
                 if !exact {
                     if block.evm_circuit_pad_to != 0 {
-                        log::info!("pad block height to {}", block.evm_circuit_pad_to);
+                        log::debug!("pad block height to {}", block.evm_circuit_pad_to);
                         // Pad leftover region to the desired capacity
                         if offset >= block.evm_circuit_pad_to {
                             panic!("row not enough");
@@ -896,11 +896,11 @@ impl<F: Field> ExecutionConfig<F> {
                         log::warn!("assign_block with exact = false, but pad_to not provided");
                     }
                 }
-                log::info!("assign for region done");
+                log::debug!("assign for region done");
                 Ok(())
             },
         )?;
-        log::info!("assign_block done");
+        log::debug!("assign_block done");
         Ok(())
     }
 

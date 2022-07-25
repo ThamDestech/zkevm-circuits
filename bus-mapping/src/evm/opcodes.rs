@@ -235,15 +235,15 @@ fn down_cast_to_opcode(opcode_id: &OpcodeId) -> &dyn Opcode {
         //     &Call
         // }
         OpcodeId::CREATE => {
-            warn!("Using dummy gen_create_ops for opcode {:?}", opcode_id);
+            debug!("Using dummy gen_create_ops for opcode {:?}", opcode_id);
             &DummyCreate::<false>
         }
         OpcodeId::CREATE2 => {
-            warn!("Using dummy gen_create_ops for opcode {:?}", opcode_id);
+            debug!("Using dummy gen_create_ops for opcode {:?}", opcode_id);
             &DummyCreate::<true>
         }
         _ => {
-            warn!("Using dummy gen_associated_ops for opcode {:?}", opcode_id);
+            debug!("Using dummy gen_associated_ops for opcode {:?}", opcode_id);
             &Dummy
         }
     }
