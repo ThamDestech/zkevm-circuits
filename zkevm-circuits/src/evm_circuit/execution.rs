@@ -887,7 +887,7 @@ impl<F: Field> ExecutionConfig<F> {
 
                 if !exact {
                     if block.evm_circuit_pad_to != 0 {
-                        log::info!("pad block height to {}", block.pad_to);
+                        log::info!("pad block height to {}", block.evm_circuit_pad_to);
                         // Pad leftover region to the desired capacity
                         if offset >= block.evm_circuit_pad_to {
                             panic!("row not enough");
