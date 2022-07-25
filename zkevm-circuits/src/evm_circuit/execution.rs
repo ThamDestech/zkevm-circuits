@@ -769,7 +769,7 @@ impl<F: Field> ExecutionConfig<F> {
                         Some(&(t, _c, _s)) => t != transaction,
                         None => true,
                     };
-                    if if_last {
+                    if is_last {
                         let mut tx = transaction.clone();
                         tx.call_data.clear();
                         tx.calls.clear();
